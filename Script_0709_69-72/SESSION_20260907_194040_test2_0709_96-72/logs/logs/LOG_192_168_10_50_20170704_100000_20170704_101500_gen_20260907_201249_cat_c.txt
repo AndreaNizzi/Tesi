@@ -1,0 +1,1204 @@
+=== INIZIO INDAGINE MCP PER TARGET: 192.168.10.50 ===
+
+==================== TURNO 1/10 [ESPLORAZIONE] ====================
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+ -> [MCP TOOL]: Esecuzione 'get_rate_statistics' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "stato_anomalia": "ANOMALIA_RILEVATA",     "diagnosi_preliminare": "CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candi...
+
+==================== TURNO 2/10 [ESPLORAZIONE] ====================
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+ -> [MCP TOOL]: Esecuzione 'get_host_port_distribution' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "stato": "ANOMALIA_RILEVATA",     "porte_uniche_contattate": 19,     "porte_probe_count": 14,     "sospetto_portscan": true,     "sospetto_bruteforce": t...
+
+==================== TURNO 3/10 [ESPLORAZIONE] ====================
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+ -> [MCP TOOL]: Esecuzione 'search_connection_attempts' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "stato": "ANOMALIA_RILEVATA",     "pattern_sospetti_rilevati": 1,     "esito": "Rilevati 1 pattern sospetti.",     "target_analizzato": "192.168.10.50", ...
+
+==================== TURNO 4/10 [ESPLORAZIONE] ====================
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+ -> [MCP TOOL]: Esecuzione 'search_http_l7_anomalies' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "offset": 0, "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "anomalie_l7_trovate": 0,     "flussi_web_esaminati": 0,     "target_colpiti_count": 0,     "sospetto_web_bruteforce": false,     "esito": "Nessun traffi...
+
+==================== TURNO 5/10 [ESPLORAZIONE] ====================
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+ -> [MCP TOOL]: Esecuzione 'detect_beaconing' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "beaconing_c2_rilevato": false,     "diagnosi": "Nessuna minaccia C2 rilevante."   },   "candidati_top": [     {       "dst_ip": "192.168.10.50",       "...
+
+==================== TURNO 6/10 [ESPLORAZIONE] ====================
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+ -> [MCP TOOL]: Esecuzione 'compute_verdict_scores' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {"status": "success", "verdetto_suggerito": "SCAN_BRUTEFORCE", "score_dominante": 0.9, "scores": {"dos_score": 0.0, "web_score": 0.0, "scan_score": 0.9, "beacon_score": 0.0}, "metr...
+
+==================== TURNO 7/10 [ESPLORAZIONE] ====================
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+ -> [LLM Thought]: {
+  "ip_target": "192.168.10.50",
+  "finestra_temporale": "2017-07-04T10:00:00 - 2017-07-04T10:15:00",
+  "verdetto": "SCAN_BRUTEFORCE",
+  "confidenza": 0.9,
+  "motivazione": "L'analisi evidenzia un pattern coerente con SCAN_BRUTEFORCE: get_host_port_distribution riporta 19 porte uniche contattate (soglia >=15 per Port Scan confermato) con 14 porte in stato probe e flag sospetto_portscan=true e sospetto_bruteforce=true, con porte target di brute force su 21 (FTP) e 53 (DNS). search_connection_attempts conferma 986 tentativi di connessione verso la porta 21 da sorgente 172.16.0.1 (valutazione SOSPETTO_BRUTEFORCE) e 32 coppie IP rilevate. get_rate_statistics mostra 1197 flussi totali con pps_aggregati 37.46 (ben sotto la soglia volumetrica 3000 PPS) e 0 flussi_slowloris, escludendo DOS_VOLUMETRIC. search_http_l7_anomalies restituisce 0 anomalie L7 e 0 flussi web esaminati, escludendo WEB_ATTACK_EXPLOIT. detect_beaconing non rileva beaconing C2 (cv alto >0.6 su tutti i candidati, anomaly_score 0, tag INTERNAL_LAN_KEEPALIVE), escludendo BEACONING_C2. Il verdetto deterministico calcolato da compute_verdict_scores (scan_score 0.9, dominante) è coerente con l'evidenza: dispersione su 19 porte di destinazione distinte e tentativi ripetuti su porta 21.",
+  "evidenze": {
+    "porte_uniche_contattate": 19,
+    "porte_probe_count": 14,
+    "sospetto_portscan": true,
+    "sospetto_bruteforce": true,
+    "porte_target_bruteforce": [21, 53],
+    "tentativi_connessione_porta_21": 986,
+    "sorgente_principale": "172.16.0.1",
+    "totale_flussi": 1197,
+    "pps_aggregati": 37.46,
+    "flussi_slowloris": 0,
+    "anomalie_l7_trovate": 0,
+    "flussi_web_totali": 0,
+    "beaconing_c2_rilevato": false,
+    "cv_massimo_candidati": 5.348,
+    "anomaly_score_beaconing": 0
+  },
+  "scores": {
+    "dos_score": 0.0,
+    "web_score": 0.0,
+    "scan_score": 0.9,
+    "beacon_score": 0.0
+  }
+}
+ -> [INFO]: Nessun ulteriore tool invocato e requisiti soddisfatti. Passo alla FASE REPORT FINALE (Verdetto: DOS_VOLUMETRIC).
+ -> [DEBUG TRANSITO]: Passaggio alla Fase 2 con stato=REPORT_FINALE
+
+==================== FASE FINALE: GENERAZIONE REPORT STRUTTURATO (STAGE 2) ====================
+ -> [VERDETTO VINCOLANTE STAGE 2 IDENTIFICATO]: SCAN_BRUTEFORCE
+ -> Generazione Report Strutturato Stage 2 (Tentativo 1/3)...
+ -> [REPORT STAGE 2 EMESSO CON SUCCESSO]: Verdetto = SCAN_BRUTEFORCE
+
+==================== INDAGINE CONCLUSA ====================
+MOTIVAZIONE: L'analisi evidenzia 19 porte uniche contattate con 14 in stato di probe, confermando un pattern di scansione, affiancato da 986 tentativi di connessione ripetuti verso la porta 21 da parte della sorgente 172.16.0.1, coerenti con un attacco di brute force.
+VERDETTO: SCAN_BRUTEFORCE
+
+=== INIZIO INDAGINE MCP PER TARGET: 192.168.10.50 ===
+
+==================== TURNO 1/10 [ESPLORAZIONE] ====================
+[PROMPT INVIATO ALL'LLM]:
+[
+  {
+    "role": "system",
+    "content": "Sei un agente esperto in Network Forensics e Threat Detection.\nIl tuo compito è eseguire i tool obbligatori nell'ordine indicato ed emettere il report forense finale in formato JSON, adottando il verdetto deterministico calcolato da 'compute_verdict_scores'.\n\nI VERDETTI CONSENTITI SONO ESCLUSIVAMENTE: [DOS_VOLUMETRIC, SCAN_BRUTEFORCE, BEACONING_C2, WEB_ATTACK_EXPLOIT, BENIGN].\n\nNON usare titoli Markdown, grassetti o blocchi di codice nei campi di testo.\n\n\n--- DIRETTIVA TASSATIVA SUL VERDETTO FINALE ---\n1. ESEGUI 'compute_verdict_scores' ESCLUSIVAMENTE COME ULTIMO TOOL, dopo tutti gli altri tool obbligatori.\n2. Il campo 'scores' che il tool restituisce contiene punteggi 0-1 già normalizzati e direttamente\n   comparabili tra loro. NON tentare di ricalcolarli, verificarli o confrontarli a mano con le soglie\n   viste nei log dei singoli tool — il calcolo che li produce tiene già conto di tutti i segnali rilevanti.\n3. Il campo 'verdetto_suggerito' è VINCOLANTE al 100%. Il tuo VERDETTO finale deve coincidere\n   esattamente con questo valore, senza eccezioni, in nessun caso.\n4. È RIGOROSAMENTE VIETATO qualunque override manuale, anche se ritieni che i log mostrino\n   evidenze diverse — il tool ha già visto ed elaborato tutti quei dati.\n5. La MOTIVAZIONE deve spiegare, con le metriche reali del log, PERCHÉ quel verdetto è coerente\n   con l'evidenza — mai proporre un verdetto alternativo o discuterne la validità.\n\n\n\n--- REGOLA DI ATTRIBUZIONE EVIDENZE (VINCOLANTE) ---\n- Il campo 'pps_aggregati' / 'flussi_slowloris' conta SOLO per DOS_VOLUMETRIC.\n- Il campo 'porte_uniche_contattate' conta SOLO per SCAN_BRUTEFORCE.\n- Il campo 'cv' / 'anomaly_score' di detect_beaconing conta SOLO per BEACONING_C2.\n- Il campo 'anomalie_l7_trovate' conta SOLO per WEB_ATTACK_EXPLOIT.\nUn segnale alto in una di queste metriche NON deve MAI essere citato a supporto di una categoria diversa da quella a cui è assegnata qui.\nI tool 'get_traffic_summary', 'get_flow_features' e 'resolve_host_info' forniscono SOLO contesto descrittivo e non possono da soli giustificare un verdetto.\n\n\n--- SCHEMA DATABASE E SEMANTICA CAMPI (ndpi_flows) ---\n- id (bigint): Identificativo univoco della connessione.\n- community_id (varchar): Hash univoco 5-tuple della connessione di rete.\n- src_ip / dst_ip (varchar): IP sorgente e destinazione.\n- src_port / dst_port (int): Porte logiche sorgente e destinazione.\n- protocol (int): Protocollo di trasporto L4 (6=TCP, 17=UDP).\n- timestamp_start (timestamp): Ora di inizio del flusso di rete.\n- duration_ms (double): Durata della connessione in MILLISECONDI.\n- total_bytes, total_fwd_bytes, total_bwd_bytes (bigint): Volumi di dati scambiati.\n- fwd_packets, bwd_packets (bigint): Conteggio pacchetti inviati/ricevuti.\n- packet_rate (double): Frequenza media pacchetti/secondo (PPS) del flusso.\n- byte_rate (double): Velocita' di trasferimento in Byte/secondo.\n- iat_flow_avg / iat_flow_stddev (double): Media e deviazione standard dell'Inter-Arrival Time.\n- tcp_flags (int): Flag TCP.\n- ndpi_hostname (varchar): Nome di dominio/host estratto da nDPI.\n- payload_entropy (double): Entropia del payload.\n- app_hierarchy (varchar): Classificazione del protocollo applicativo.\n- infra_provider (varchar): Cloud Provider o ASN della destinazione.\n- tls_version, tls_cipher_suite, tls_ja4, tls_issuer_dn (varchar): Impronte TLS.\n\n\n--- PIANO D'AZIONE RIGIDO (SEQUENZA OBBLIGATORIA) ---\nPasso 1: get_rate_statistics\nPasso 2: get_host_port_distribution\nPasso 3: search_connection_attempts\nPasso 4: search_http_l7_anomalies\nPasso 5: detect_beaconing\nPasso 6: compute_verdict_scores COME ULTIMO STEP (mai prima)\nPasso 7: genera il report JSON usando ESATTAMENTE 'verdetto_suggerito' come 'verdetto'\n\nPrima di rispondere devi aver eseguito: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n"
+  },
+  {
+    "role": "user",
+    "content": "CONTESTO INDAGINE\n- IP Target: 192.168.10.50\n- Finestra Temporale: 2017-07-04T10:00:00 - 2017-07-04T10:15:00\n\nPIANO D'AZIONE SUGGERITO PER QUESTO SET DI DATI\nPIANO D'AZIONE INVESTIGATIVO: MAPPATURA ENDPOINT E ACCESSI\n- Ambito prioritario: Focus su porte di gestione (22, 3389, 21), scansione di PORTE DESTINAZIONE MULTIPLE e tentativi di login.\n- DISTINZIONE FONDAMENTALE: Le porte SORGENTE dinamiche/casuali verso un'unica porta DESTINAZIONE indicano un attacco o traffico verso un servizio (DoS/Web), NON uno SCAN_BRUTEFORCE. Lo Scan richiede multiple PORTE DESTINAZIONE distinte.\n\nISTRUZIONI DI METODO ANALITICO\n1. Esplorazione Obbligatoria: Ispeziona in sequenza: (a) Sintesi e Volumi -> (b) Distribuzione Porte e Tentativi di Connessione -> (c) Ispezione L7 / HTTP se presenti porte 80/443 -> (d) Verifiche su Beaconing / Periodicita'.\n2. Gestione Campione Ridotto / PortScan: Se 'get_host_port_distribution' o 'get_rate_statistics' indicano pochi flussi, NON presupporre immediatamente BENIGN. Esegui SEMPRE 'search_connection_attempts' (senza filtrare per singola porta, o verificando i SYN/connessioni fallite) per verificare se vi sono tentativi di PortScan stealth o intermittenti.\n3. Obbligo Ispezione L7: Se rilevi traffico verso porte 80, 443 o 8080, richiama 'search_http_l7_anomalies' prima di concludere l'analisi.\n4. Divieto di Chiusura Prematura: DEVI eseguire TUTTI i tool obbligatori prima di emettere il verdetto: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n\nInizia l'ispezione richiamando il primo tool idoneo."
+  }
+]
+
+
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+[RISPOSTA RICEVUTA DALL'LLM]:
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+      "type": "function",
+      "function": {
+        "name": "get_rate_statistics",
+        "arguments": "{\"start_time\":\"2017-07-04T10:00:00\",\"end_time\":\"2017-07-04T10:15:00\",\"ip_target\":\"192.168.10.50\"}"
+      }
+    }
+  ]
+}
+
+
+ -> [MCP TOOL]: Esecuzione 'get_rate_statistics' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "stato_anomalia": "ANOMALIA_RILEVATA",     "diagnosi_preliminare": "CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candi...
+[RISULTATO TOOL INTEGRALE]:
+{
+  "sintesi_smart": {
+    "stato_anomalia": "ANOMALIA_RILEVATA",
+    "diagnosi_preliminare": "CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candidato per DOS_VOLUMETRIC."
+  },
+  "metriche_chiave": {
+    "pps_aggregati": 37.46,
+    "burst_pps": 37.54,
+    "totale_flussi": 1197,
+    "flussi_web_totali": 0,
+    "flussi_per_sec": 1.33,
+    "burst_flussi_per_sec": 1.33,
+    "web_rps": 0.0,
+    "burst_web_rps": 0.0,
+    "flussi_oltre_soglia_pps": 30,
+    "flussi_slowloris": 0,
+    "max_pps_singolo_flusso": 71.71,
+    "durata_burst_sec": 898.0,
+    "durata_burst_web_sec": 0.0
+  },
+  "tempo_sql_sec": 0.2386
+}
+
+
+
+==================== TURNO 2/10 [ESPLORAZIONE] ====================
+[PROMPT INVIATO ALL'LLM]:
+[
+  {
+    "role": "system",
+    "content": "Sei un agente esperto in Network Forensics e Threat Detection.\nIl tuo compito è eseguire i tool obbligatori nell'ordine indicato ed emettere il report forense finale in formato JSON, adottando il verdetto deterministico calcolato da 'compute_verdict_scores'.\n\nI VERDETTI CONSENTITI SONO ESCLUSIVAMENTE: [DOS_VOLUMETRIC, SCAN_BRUTEFORCE, BEACONING_C2, WEB_ATTACK_EXPLOIT, BENIGN].\n\nNON usare titoli Markdown, grassetti o blocchi di codice nei campi di testo.\n\n\n--- DIRETTIVA TASSATIVA SUL VERDETTO FINALE ---\n1. ESEGUI 'compute_verdict_scores' ESCLUSIVAMENTE COME ULTIMO TOOL, dopo tutti gli altri tool obbligatori.\n2. Il campo 'scores' che il tool restituisce contiene punteggi 0-1 già normalizzati e direttamente\n   comparabili tra loro. NON tentare di ricalcolarli, verificarli o confrontarli a mano con le soglie\n   viste nei log dei singoli tool — il calcolo che li produce tiene già conto di tutti i segnali rilevanti.\n3. Il campo 'verdetto_suggerito' è VINCOLANTE al 100%. Il tuo VERDETTO finale deve coincidere\n   esattamente con questo valore, senza eccezioni, in nessun caso.\n4. È RIGOROSAMENTE VIETATO qualunque override manuale, anche se ritieni che i log mostrino\n   evidenze diverse — il tool ha già visto ed elaborato tutti quei dati.\n5. La MOTIVAZIONE deve spiegare, con le metriche reali del log, PERCHÉ quel verdetto è coerente\n   con l'evidenza — mai proporre un verdetto alternativo o discuterne la validità.\n\n\n\n--- REGOLA DI ATTRIBUZIONE EVIDENZE (VINCOLANTE) ---\n- Il campo 'pps_aggregati' / 'flussi_slowloris' conta SOLO per DOS_VOLUMETRIC.\n- Il campo 'porte_uniche_contattate' conta SOLO per SCAN_BRUTEFORCE.\n- Il campo 'cv' / 'anomaly_score' di detect_beaconing conta SOLO per BEACONING_C2.\n- Il campo 'anomalie_l7_trovate' conta SOLO per WEB_ATTACK_EXPLOIT.\nUn segnale alto in una di queste metriche NON deve MAI essere citato a supporto di una categoria diversa da quella a cui è assegnata qui.\nI tool 'get_traffic_summary', 'get_flow_features' e 'resolve_host_info' forniscono SOLO contesto descrittivo e non possono da soli giustificare un verdetto.\n\n\n--- SCHEMA DATABASE E SEMANTICA CAMPI (ndpi_flows) ---\n- id (bigint): Identificativo univoco della connessione.\n- community_id (varchar): Hash univoco 5-tuple della connessione di rete.\n- src_ip / dst_ip (varchar): IP sorgente e destinazione.\n- src_port / dst_port (int): Porte logiche sorgente e destinazione.\n- protocol (int): Protocollo di trasporto L4 (6=TCP, 17=UDP).\n- timestamp_start (timestamp): Ora di inizio del flusso di rete.\n- duration_ms (double): Durata della connessione in MILLISECONDI.\n- total_bytes, total_fwd_bytes, total_bwd_bytes (bigint): Volumi di dati scambiati.\n- fwd_packets, bwd_packets (bigint): Conteggio pacchetti inviati/ricevuti.\n- packet_rate (double): Frequenza media pacchetti/secondo (PPS) del flusso.\n- byte_rate (double): Velocita' di trasferimento in Byte/secondo.\n- iat_flow_avg / iat_flow_stddev (double): Media e deviazione standard dell'Inter-Arrival Time.\n- tcp_flags (int): Flag TCP.\n- ndpi_hostname (varchar): Nome di dominio/host estratto da nDPI.\n- payload_entropy (double): Entropia del payload.\n- app_hierarchy (varchar): Classificazione del protocollo applicativo.\n- infra_provider (varchar): Cloud Provider o ASN della destinazione.\n- tls_version, tls_cipher_suite, tls_ja4, tls_issuer_dn (varchar): Impronte TLS.\n\n\n--- PIANO D'AZIONE RIGIDO (SEQUENZA OBBLIGATORIA) ---\nPasso 1: get_rate_statistics\nPasso 2: get_host_port_distribution\nPasso 3: search_connection_attempts\nPasso 4: search_http_l7_anomalies\nPasso 5: detect_beaconing\nPasso 6: compute_verdict_scores COME ULTIMO STEP (mai prima)\nPasso 7: genera il report JSON usando ESATTAMENTE 'verdetto_suggerito' come 'verdetto'\n\nPrima di rispondere devi aver eseguito: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n"
+  },
+  {
+    "role": "user",
+    "content": "CONTESTO INDAGINE\n- IP Target: 192.168.10.50\n- Finestra Temporale: 2017-07-04T10:00:00 - 2017-07-04T10:15:00\n\nPIANO D'AZIONE SUGGERITO PER QUESTO SET DI DATI\nPIANO D'AZIONE INVESTIGATIVO: MAPPATURA ENDPOINT E ACCESSI\n- Ambito prioritario: Focus su porte di gestione (22, 3389, 21), scansione di PORTE DESTINAZIONE MULTIPLE e tentativi di login.\n- DISTINZIONE FONDAMENTALE: Le porte SORGENTE dinamiche/casuali verso un'unica porta DESTINAZIONE indicano un attacco o traffico verso un servizio (DoS/Web), NON uno SCAN_BRUTEFORCE. Lo Scan richiede multiple PORTE DESTINAZIONE distinte.\n\nISTRUZIONI DI METODO ANALITICO\n1. Esplorazione Obbligatoria: Ispeziona in sequenza: (a) Sintesi e Volumi -> (b) Distribuzione Porte e Tentativi di Connessione -> (c) Ispezione L7 / HTTP se presenti porte 80/443 -> (d) Verifiche su Beaconing / Periodicita'.\n2. Gestione Campione Ridotto / PortScan: Se 'get_host_port_distribution' o 'get_rate_statistics' indicano pochi flussi, NON presupporre immediatamente BENIGN. Esegui SEMPRE 'search_connection_attempts' (senza filtrare per singola porta, o verificando i SYN/connessioni fallite) per verificare se vi sono tentativi di PortScan stealth o intermittenti.\n3. Obbligo Ispezione L7: Se rilevi traffico verso porte 80, 443 o 8080, richiama 'search_http_l7_anomalies' prima di concludere l'analisi.\n4. Divieto di Chiusura Prematura: DEVI eseguire TUTTI i tool obbligatori prima di emettere il verdetto: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n\nInizia l'ispezione richiamando il primo tool idoneo."
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+        "type": "function",
+        "function": {
+          "name": "get_rate_statistics",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+    "name": "get_rate_statistics",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato_anomalia\": \"ANOMALIA_RILEVATA\",\n    \"diagnosi_preliminare\": \"CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candidato per DOS_VOLUMETRIC.\"\n  },\n  \"metriche_chiave\": {\n    \"pps_aggregati\": 37.46,\n    \"burst_pps\": 37.54,\n    \"totale_flussi\": 1197,\n    \"flussi_web_totali\": 0,\n    \"flussi_per_sec\": 1.33,\n    \"burst_flussi_per_sec\": 1.33,\n    \"web_rps\": 0.0,\n    \"burst_web_rps\": 0.0,\n    \"flussi_oltre_soglia_pps\": 30,\n    \"flussi_slowloris\": 0,\n    \"max_pps_singolo_flusso\": 71.71,\n    \"durata_burst_sec\": 898.0,\n    \"durata_burst_web_sec\": 0.0\n  },\n  \"tempo_sql_sec\": 0.2386\n}"
+  }
+]
+
+
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+[RISPOSTA RICEVUTA DALL'LLM]:
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+      "type": "function",
+      "function": {
+        "name": "get_host_port_distribution",
+        "arguments": "{\"end_time\":\"2017-07-04T10:15:00\",\"ip_target\":\"192.168.10.50\",\"start_time\":\"2017-07-04T10:00:00\"}"
+      }
+    }
+  ]
+}
+
+
+ -> [MCP TOOL]: Esecuzione 'get_host_port_distribution' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "stato": "ANOMALIA_RILEVATA",     "porte_uniche_contattate": 19,     "porte_probe_count": 14,     "sospetto_portscan": true,     "sospetto_bruteforce": t...
+[RISULTATO TOOL INTEGRALE]:
+{
+  "sintesi_smart": {
+    "stato": "ANOMALIA_RILEVATA",
+    "porte_uniche_contattate": 19,
+    "porte_probe_count": 14,
+    "sospetto_portscan": true,
+    "sospetto_bruteforce": true,
+    "porte_target_bruteforce": [
+      21,
+      53
+    ],
+    "distribuzione_top": [
+      {
+        "dst_port": 21,
+        "num_flussi": 993,
+        "sorgenti_distinte": 6
+      },
+      {
+        "dst_port": 53,
+        "num_flussi": 135,
+        "sorgenti_distinte": 1
+      },
+      {
+        "dst_port": 22,
+        "num_flussi": 40,
+        "sorgenti_distinte": 9
+      },
+      {
+        "dst_port": 88,
+        "num_flussi": 8,
+        "sorgenti_distinte": 1
+      },
+      {
+        "dst_port": 139,
+        "num_flussi": 5,
+        "sorgenti_distinte": 1
+      },
+      {
+        "dst_port": 389,
+        "num_flussi": 3,
+        "sorgenti_distinte": 1
+      },
+      {
+        "dst_port": 3268,
+        "num_flussi": 1,
+        "sorgenti_distinte": 1
+      },
+      {
+        "dst_port": 8740,
+        "num_flussi": 1,
+        "sorgenti_distinte": 1
+      },
+      {
+        "dst_port": 10702,
+        "num_flussi": 1,
+        "sorgenti_distinte": 1
+      },
+      {
+        "dst_port": 17592,
+        "num_flussi": 1,
+        "sorgenti_distinte": 1
+      }
+    ]
+  },
+  "tempo_sql_sec": 0.1136
+}
+
+
+
+==================== TURNO 3/10 [ESPLORAZIONE] ====================
+[PROMPT INVIATO ALL'LLM]:
+[
+  {
+    "role": "system",
+    "content": "Sei un agente esperto in Network Forensics e Threat Detection.\nIl tuo compito è eseguire i tool obbligatori nell'ordine indicato ed emettere il report forense finale in formato JSON, adottando il verdetto deterministico calcolato da 'compute_verdict_scores'.\n\nI VERDETTI CONSENTITI SONO ESCLUSIVAMENTE: [DOS_VOLUMETRIC, SCAN_BRUTEFORCE, BEACONING_C2, WEB_ATTACK_EXPLOIT, BENIGN].\n\nNON usare titoli Markdown, grassetti o blocchi di codice nei campi di testo.\n\n\n--- DIRETTIVA TASSATIVA SUL VERDETTO FINALE ---\n1. ESEGUI 'compute_verdict_scores' ESCLUSIVAMENTE COME ULTIMO TOOL, dopo tutti gli altri tool obbligatori.\n2. Il campo 'scores' che il tool restituisce contiene punteggi 0-1 già normalizzati e direttamente\n   comparabili tra loro. NON tentare di ricalcolarli, verificarli o confrontarli a mano con le soglie\n   viste nei log dei singoli tool — il calcolo che li produce tiene già conto di tutti i segnali rilevanti.\n3. Il campo 'verdetto_suggerito' è VINCOLANTE al 100%. Il tuo VERDETTO finale deve coincidere\n   esattamente con questo valore, senza eccezioni, in nessun caso.\n4. È RIGOROSAMENTE VIETATO qualunque override manuale, anche se ritieni che i log mostrino\n   evidenze diverse — il tool ha già visto ed elaborato tutti quei dati.\n5. La MOTIVAZIONE deve spiegare, con le metriche reali del log, PERCHÉ quel verdetto è coerente\n   con l'evidenza — mai proporre un verdetto alternativo o discuterne la validità.\n\n\n\n--- REGOLA DI ATTRIBUZIONE EVIDENZE (VINCOLANTE) ---\n- Il campo 'pps_aggregati' / 'flussi_slowloris' conta SOLO per DOS_VOLUMETRIC.\n- Il campo 'porte_uniche_contattate' conta SOLO per SCAN_BRUTEFORCE.\n- Il campo 'cv' / 'anomaly_score' di detect_beaconing conta SOLO per BEACONING_C2.\n- Il campo 'anomalie_l7_trovate' conta SOLO per WEB_ATTACK_EXPLOIT.\nUn segnale alto in una di queste metriche NON deve MAI essere citato a supporto di una categoria diversa da quella a cui è assegnata qui.\nI tool 'get_traffic_summary', 'get_flow_features' e 'resolve_host_info' forniscono SOLO contesto descrittivo e non possono da soli giustificare un verdetto.\n\n\n--- SCHEMA DATABASE E SEMANTICA CAMPI (ndpi_flows) ---\n- id (bigint): Identificativo univoco della connessione.\n- community_id (varchar): Hash univoco 5-tuple della connessione di rete.\n- src_ip / dst_ip (varchar): IP sorgente e destinazione.\n- src_port / dst_port (int): Porte logiche sorgente e destinazione.\n- protocol (int): Protocollo di trasporto L4 (6=TCP, 17=UDP).\n- timestamp_start (timestamp): Ora di inizio del flusso di rete.\n- duration_ms (double): Durata della connessione in MILLISECONDI.\n- total_bytes, total_fwd_bytes, total_bwd_bytes (bigint): Volumi di dati scambiati.\n- fwd_packets, bwd_packets (bigint): Conteggio pacchetti inviati/ricevuti.\n- packet_rate (double): Frequenza media pacchetti/secondo (PPS) del flusso.\n- byte_rate (double): Velocita' di trasferimento in Byte/secondo.\n- iat_flow_avg / iat_flow_stddev (double): Media e deviazione standard dell'Inter-Arrival Time.\n- tcp_flags (int): Flag TCP.\n- ndpi_hostname (varchar): Nome di dominio/host estratto da nDPI.\n- payload_entropy (double): Entropia del payload.\n- app_hierarchy (varchar): Classificazione del protocollo applicativo.\n- infra_provider (varchar): Cloud Provider o ASN della destinazione.\n- tls_version, tls_cipher_suite, tls_ja4, tls_issuer_dn (varchar): Impronte TLS.\n\n\n--- PIANO D'AZIONE RIGIDO (SEQUENZA OBBLIGATORIA) ---\nPasso 1: get_rate_statistics\nPasso 2: get_host_port_distribution\nPasso 3: search_connection_attempts\nPasso 4: search_http_l7_anomalies\nPasso 5: detect_beaconing\nPasso 6: compute_verdict_scores COME ULTIMO STEP (mai prima)\nPasso 7: genera il report JSON usando ESATTAMENTE 'verdetto_suggerito' come 'verdetto'\n\nPrima di rispondere devi aver eseguito: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n"
+  },
+  {
+    "role": "user",
+    "content": "CONTESTO INDAGINE\n- IP Target: 192.168.10.50\n- Finestra Temporale: 2017-07-04T10:00:00 - 2017-07-04T10:15:00\n\nPIANO D'AZIONE SUGGERITO PER QUESTO SET DI DATI\nPIANO D'AZIONE INVESTIGATIVO: MAPPATURA ENDPOINT E ACCESSI\n- Ambito prioritario: Focus su porte di gestione (22, 3389, 21), scansione di PORTE DESTINAZIONE MULTIPLE e tentativi di login.\n- DISTINZIONE FONDAMENTALE: Le porte SORGENTE dinamiche/casuali verso un'unica porta DESTINAZIONE indicano un attacco o traffico verso un servizio (DoS/Web), NON uno SCAN_BRUTEFORCE. Lo Scan richiede multiple PORTE DESTINAZIONE distinte.\n\nISTRUZIONI DI METODO ANALITICO\n1. Esplorazione Obbligatoria: Ispeziona in sequenza: (a) Sintesi e Volumi -> (b) Distribuzione Porte e Tentativi di Connessione -> (c) Ispezione L7 / HTTP se presenti porte 80/443 -> (d) Verifiche su Beaconing / Periodicita'.\n2. Gestione Campione Ridotto / PortScan: Se 'get_host_port_distribution' o 'get_rate_statistics' indicano pochi flussi, NON presupporre immediatamente BENIGN. Esegui SEMPRE 'search_connection_attempts' (senza filtrare per singola porta, o verificando i SYN/connessioni fallite) per verificare se vi sono tentativi di PortScan stealth o intermittenti.\n3. Obbligo Ispezione L7: Se rilevi traffico verso porte 80, 443 o 8080, richiama 'search_http_l7_anomalies' prima di concludere l'analisi.\n4. Divieto di Chiusura Prematura: DEVI eseguire TUTTI i tool obbligatori prima di emettere il verdetto: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n\nInizia l'ispezione richiamando il primo tool idoneo."
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+        "type": "function",
+        "function": {
+          "name": "get_rate_statistics",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+    "name": "get_rate_statistics",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato_anomalia\": \"ANOMALIA_RILEVATA\",\n    \"diagnosi_preliminare\": \"CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candidato per DOS_VOLUMETRIC.\"\n  },\n  \"metriche_chiave\": {\n    \"pps_aggregati\": 37.46,\n    \"burst_pps\": 37.54,\n    \"totale_flussi\": 1197,\n    \"flussi_web_totali\": 0,\n    \"flussi_per_sec\": 1.33,\n    \"burst_flussi_per_sec\": 1.33,\n    \"web_rps\": 0.0,\n    \"burst_web_rps\": 0.0,\n    \"flussi_oltre_soglia_pps\": 30,\n    \"flussi_slowloris\": 0,\n    \"max_pps_singolo_flusso\": 71.71,\n    \"durata_burst_sec\": 898.0,\n    \"durata_burst_web_sec\": 0.0\n  },\n  \"tempo_sql_sec\": 0.2386\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+        "type": "function",
+        "function": {
+          "name": "get_host_port_distribution",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+    "name": "get_host_port_distribution",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"porte_uniche_contattate\": 19,\n    \"porte_probe_count\": 14,\n    \"sospetto_portscan\": true,\n    \"sospetto_bruteforce\": true,\n    \"porte_target_bruteforce\": [\n      21,\n      53\n    ],\n    \"distribuzione_top\": [\n      {\n        \"dst_port\": 21,\n        \"num_flussi\": 993,\n        \"sorgenti_distinte\": 6\n      },\n      {\n        \"dst_port\": 53,\n        \"num_flussi\": 135,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 22,\n        \"num_flussi\": 40,\n        \"sorgenti_distinte\": 9\n      },\n      {\n        \"dst_port\": 88,\n        \"num_flussi\": 8,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 139,\n        \"num_flussi\": 5,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 389,\n        \"num_flussi\": 3,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 3268,\n        \"num_flussi\": 1,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"ds\n\n[... TRONCATO A 1000 CHAR (su 1317 orig.) ...]"
+  }
+]
+
+
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+[RISPOSTA RICEVUTA DALL'LLM]:
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+      "type": "function",
+      "function": {
+        "name": "search_connection_attempts",
+        "arguments": "{\"end_time\":\"2017-07-04T10:15:00\",\"start_time\":\"2017-07-04T10:00:00\",\"ip_target\":\"192.168.10.50\"}"
+      }
+    }
+  ]
+}
+
+
+ -> [MCP TOOL]: Esecuzione 'search_connection_attempts' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "stato": "ANOMALIA_RILEVATA",     "pattern_sospetti_rilevati": 1,     "esito": "Rilevati 1 pattern sospetti.",     "target_analizzato": "192.168.10.50", ...
+[RISULTATO TOOL INTEGRALE]:
+{
+  "sintesi_smart": {
+    "stato": "ANOMALIA_RILEVATA",
+    "pattern_sospetti_rilevati": 1,
+    "esito": "Rilevati 1 pattern sospetti.",
+    "target_analizzato": "192.168.10.50",
+    "target_port_analizzata": "TUTTE_LE_PORTE"
+  },
+  "tempo_sql_reale_sec": 0.126495,
+  "totale_coppie_ip_rilevate": 32,
+  "tentativi_connessione": [
+    {
+      "src_ip": "172.16.0.1",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 21,
+      "tentativi_totali": 986,
+      "porte_distinte": 1,
+      "valutazione_mcp": "SOSPETTO_BRUTEFORCE"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.3",
+      "dst_port": 53,
+      "tentativi_totali": 135,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.3",
+      "dst_port": 88,
+      "tentativi_totali": 8,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.14",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 6,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.15",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 6,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.16",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 6,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.25",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 139,
+      "tentativi_totali": 5,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.12",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 4,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.19",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 4,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.5",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 4,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.51",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 4,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.8",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 4,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.3",
+      "dst_port": 389,
+      "tentativi_totali": 3,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.17",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 21,
+      "tentativi_totali": 2,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.8",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 21,
+      "tentativi_totali": 2,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.9",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "tentativi_totali": 2,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.12",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 21,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.12",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 17592,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.15",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 21,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.15",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 58362,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.17",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 8740,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.17",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 53826,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.5",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 21,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.5",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 27033,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.25",
+      "dst_port": 49208,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.25",
+      "dst_port": 49209,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.25",
+      "dst_port": 49210,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.25",
+      "dst_port": 49211,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.25",
+      "dst_port": 49212,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    },
+    {
+      "src_ip": "192.168.10.50",
+      "dst_ip": "192.168.10.3",
+      "dst_port": 3268,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.8",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 10702,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO"
+    },
+    {
+      "src_ip": "192.168.10.8",
+      "dst_ip": "192.168.10.50",
+      "dst_port": 56738,
+      "tentativi_totali": 1,
+      "porte_distinte": 1,
+      "valutazione_mcp": "TRAFFICO_ORDINARIO_LAN"
+    }
+  ]
+}
+
+
+
+==================== TURNO 4/10 [ESPLORAZIONE] ====================
+[PROMPT INVIATO ALL'LLM]:
+[
+  {
+    "role": "system",
+    "content": "Sei un agente esperto in Network Forensics e Threat Detection.\nIl tuo compito è eseguire i tool obbligatori nell'ordine indicato ed emettere il report forense finale in formato JSON, adottando il verdetto deterministico calcolato da 'compute_verdict_scores'.\n\nI VERDETTI CONSENTITI SONO ESCLUSIVAMENTE: [DOS_VOLUMETRIC, SCAN_BRUTEFORCE, BEACONING_C2, WEB_ATTACK_EXPLOIT, BENIGN].\n\nNON usare titoli Markdown, grassetti o blocchi di codice nei campi di testo.\n\n\n--- DIRETTIVA TASSATIVA SUL VERDETTO FINALE ---\n1. ESEGUI 'compute_verdict_scores' ESCLUSIVAMENTE COME ULTIMO TOOL, dopo tutti gli altri tool obbligatori.\n2. Il campo 'scores' che il tool restituisce contiene punteggi 0-1 già normalizzati e direttamente\n   comparabili tra loro. NON tentare di ricalcolarli, verificarli o confrontarli a mano con le soglie\n   viste nei log dei singoli tool — il calcolo che li produce tiene già conto di tutti i segnali rilevanti.\n3. Il campo 'verdetto_suggerito' è VINCOLANTE al 100%. Il tuo VERDETTO finale deve coincidere\n   esattamente con questo valore, senza eccezioni, in nessun caso.\n4. È RIGOROSAMENTE VIETATO qualunque override manuale, anche se ritieni che i log mostrino\n   evidenze diverse — il tool ha già visto ed elaborato tutti quei dati.\n5. La MOTIVAZIONE deve spiegare, con le metriche reali del log, PERCHÉ quel verdetto è coerente\n   con l'evidenza — mai proporre un verdetto alternativo o discuterne la validità.\n\n\n\n--- REGOLA DI ATTRIBUZIONE EVIDENZE (VINCOLANTE) ---\n- Il campo 'pps_aggregati' / 'flussi_slowloris' conta SOLO per DOS_VOLUMETRIC.\n- Il campo 'porte_uniche_contattate' conta SOLO per SCAN_BRUTEFORCE.\n- Il campo 'cv' / 'anomaly_score' di detect_beaconing conta SOLO per BEACONING_C2.\n- Il campo 'anomalie_l7_trovate' conta SOLO per WEB_ATTACK_EXPLOIT.\nUn segnale alto in una di queste metriche NON deve MAI essere citato a supporto di una categoria diversa da quella a cui è assegnata qui.\nI tool 'get_traffic_summary', 'get_flow_features' e 'resolve_host_info' forniscono SOLO contesto descrittivo e non possono da soli giustificare un verdetto.\n\n\n--- SCHEMA DATABASE E SEMANTICA CAMPI (ndpi_flows) ---\n- id (bigint): Identificativo univoco della connessione.\n- community_id (varchar): Hash univoco 5-tuple della connessione di rete.\n- src_ip / dst_ip (varchar): IP sorgente e destinazione.\n- src_port / dst_port (int): Porte logiche sorgente e destinazione.\n- protocol (int): Protocollo di trasporto L4 (6=TCP, 17=UDP).\n- timestamp_start (timestamp): Ora di inizio del flusso di rete.\n- duration_ms (double): Durata della connessione in MILLISECONDI.\n- total_bytes, total_fwd_bytes, total_bwd_bytes (bigint): Volumi di dati scambiati.\n- fwd_packets, bwd_packets (bigint): Conteggio pacchetti inviati/ricevuti.\n- packet_rate (double): Frequenza media pacchetti/secondo (PPS) del flusso.\n- byte_rate (double): Velocita' di trasferimento in Byte/secondo.\n- iat_flow_avg / iat_flow_stddev (double): Media e deviazione standard dell'Inter-Arrival Time.\n- tcp_flags (int): Flag TCP.\n- ndpi_hostname (varchar): Nome di dominio/host estratto da nDPI.\n- payload_entropy (double): Entropia del payload.\n- app_hierarchy (varchar): Classificazione del protocollo applicativo.\n- infra_provider (varchar): Cloud Provider o ASN della destinazione.\n- tls_version, tls_cipher_suite, tls_ja4, tls_issuer_dn (varchar): Impronte TLS.\n\n\n--- PIANO D'AZIONE RIGIDO (SEQUENZA OBBLIGATORIA) ---\nPasso 1: get_rate_statistics\nPasso 2: get_host_port_distribution\nPasso 3: search_connection_attempts\nPasso 4: search_http_l7_anomalies\nPasso 5: detect_beaconing\nPasso 6: compute_verdict_scores COME ULTIMO STEP (mai prima)\nPasso 7: genera il report JSON usando ESATTAMENTE 'verdetto_suggerito' come 'verdetto'\n\nPrima di rispondere devi aver eseguito: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n"
+  },
+  {
+    "role": "user",
+    "content": "CONTESTO INDAGINE\n- IP Target: 192.168.10.50\n- Finestra Temporale: 2017-07-04T10:00:00 - 2017-07-04T10:15:00\n\nPIANO D'AZIONE SUGGERITO PER QUESTO SET DI DATI\nPIANO D'AZIONE INVESTIGATIVO: MAPPATURA ENDPOINT E ACCESSI\n- Ambito prioritario: Focus su porte di gestione (22, 3389, 21), scansione di PORTE DESTINAZIONE MULTIPLE e tentativi di login.\n- DISTINZIONE FONDAMENTALE: Le porte SORGENTE dinamiche/casuali verso un'unica porta DESTINAZIONE indicano un attacco o traffico verso un servizio (DoS/Web), NON uno SCAN_BRUTEFORCE. Lo Scan richiede multiple PORTE DESTINAZIONE distinte.\n\nISTRUZIONI DI METODO ANALITICO\n1. Esplorazione Obbligatoria: Ispeziona in sequenza: (a) Sintesi e Volumi -> (b) Distribuzione Porte e Tentativi di Connessione -> (c) Ispezione L7 / HTTP se presenti porte 80/443 -> (d) Verifiche su Beaconing / Periodicita'.\n2. Gestione Campione Ridotto / PortScan: Se 'get_host_port_distribution' o 'get_rate_statistics' indicano pochi flussi, NON presupporre immediatamente BENIGN. Esegui SEMPRE 'search_connection_attempts' (senza filtrare per singola porta, o verificando i SYN/connessioni fallite) per verificare se vi sono tentativi di PortScan stealth o intermittenti.\n3. Obbligo Ispezione L7: Se rilevi traffico verso porte 80, 443 o 8080, richiama 'search_http_l7_anomalies' prima di concludere l'analisi.\n4. Divieto di Chiusura Prematura: DEVI eseguire TUTTI i tool obbligatori prima di emettere il verdetto: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n\nInizia l'ispezione richiamando il primo tool idoneo."
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+        "type": "function",
+        "function": {
+          "name": "get_rate_statistics",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+    "name": "get_rate_statistics",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato_anomalia\": \"ANOMALIA_RILEVATA\",\n    \"diagnosi_preliminare\": \"CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candidato per DOS_VOLUMETRIC.\"\n  },\n  \"metriche_chiave\": {\n    \"pps_aggregati\": 37.46,\n    \"burst_pps\": 37.54,\n    \"totale_flussi\": 1197,\n    \"flussi_web_totali\": 0,\n    \"flussi_per_sec\": 1.33,\n    \"burst_flussi_per_sec\": 1.33,\n    \"web_rps\": 0.0,\n    \"burst_web_rps\": 0.0,\n    \"flussi_oltre_soglia_pps\": 30,\n    \"flussi_slowloris\": 0,\n    \"max_pps_singolo_flusso\": 71.71,\n    \"durata_burst_sec\": 898.0,\n    \"durata_burst_web_sec\": 0.0\n  },\n  \"tempo_sql_sec\": 0.2386\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+        "type": "function",
+        "function": {
+          "name": "get_host_port_distribution",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+    "name": "get_host_port_distribution",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"porte_uniche_contattate\": 19,\n    \"porte_probe_count\": 14,\n    \"sospetto_portscan\": true,\n    \"sospetto_bruteforce\": true,\n    \"porte_target_bruteforce\": [\n      21,\n      53\n    ],\n    \"distribuzione_top\": [\n      {\n        \"dst_port\": 21,\n        \"num_flussi\": 993,\n        \"sorgenti_distinte\": 6\n      },\n      {\n        \"dst_port\": 53,\n        \"num_flussi\": 135,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 22,\n        \"num_flussi\": 40,\n        \"sorgenti_distinte\": 9\n      },\n      {\n        \"dst_port\": 88,\n        \"num_flussi\": 8,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 139,\n        \"num_flussi\": 5,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 389,\n        \"num_flussi\": 3,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 3268,\n        \"num_flussi\": 1,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"ds\n\n[... TRONCATO A 1000 CHAR (su 1317 orig.) ...]"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+        "type": "function",
+        "function": {
+          "name": "search_connection_attempts",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+    "name": "search_connection_attempts",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"pattern_sospetti_rilevati\": 1,\n    \"esito\": \"Rilevati 1 pattern sospetti.\",\n    \"target_analizzato\": \"192.168.10.50\",\n    \"target_port_analizzata\": \"TUTTE_LE_PORTE\"\n  },\n  \"tempo_sql_reale_sec\": 0.126495,\n  \"totale_coppie_ip_rilevate\": 32,\n  \"tentativi_connessione\": [\n    {\n      \"src_ip\": \"172.16.0.1\",\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 21,\n      \"tentativi_totali\": 986,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"SOSPETTO_BRUTEFORCE\"\n    },\n    {\n      \"src_ip\": \"192.168.10.50\",\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 53,\n      \"tentativi_totali\": 135,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"TRAFFICO_ORDINARIO_LAN\"\n    },\n    {\n      \"src_ip\": \"192.168.10.50\",\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 88,\n      \"tentativi_totali\": 8,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"TRAFFICO_ORDINARIO_LAN\"\n    },\n    {\n      \"src_ip\": \"192.168\n\n[... TRONCATO A 1000 CHAR (su 1551 orig.) ...]"
+  }
+]
+
+
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+[RISPOSTA RICEVUTA DALL'LLM]:
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "aDApjrJ3Q0G6d42ZMgDKySPi4RubHQlT",
+      "type": "function",
+      "function": {
+        "name": "search_http_l7_anomalies",
+        "arguments": "{\"end_time\":\"2017-07-04T10:15:00\",\"ip_target\":\"192.168.10.50\",\"start_time\":\"2017-07-04T10:00:00\"}"
+      }
+    }
+  ]
+}
+
+
+ -> [MCP TOOL]: Esecuzione 'search_http_l7_anomalies' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "offset": 0, "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "anomalie_l7_trovate": 0,     "flussi_web_esaminati": 0,     "target_colpiti_count": 0,     "sospetto_web_bruteforce": false,     "esito": "Nessun traffi...
+[RISULTATO TOOL INTEGRALE]:
+{
+  "sintesi_smart": {
+    "anomalie_l7_trovate": 0,
+    "flussi_web_esaminati": 0,
+    "target_colpiti_count": 0,
+    "sospetto_web_bruteforce": false,
+    "esito": "Nessun traffico HTTP/L7 trovato nella finestra temporale."
+  },
+  "campione_anomalie": [],
+  "tempo_sql_sec": 0.1011
+}
+
+
+
+==================== TURNO 5/10 [ESPLORAZIONE] ====================
+[PROMPT INVIATO ALL'LLM]:
+[
+  {
+    "role": "system",
+    "content": "Sei un agente esperto in Network Forensics e Threat Detection.\nIl tuo compito è eseguire i tool obbligatori nell'ordine indicato ed emettere il report forense finale in formato JSON, adottando il verdetto deterministico calcolato da 'compute_verdict_scores'.\n\nI VERDETTI CONSENTITI SONO ESCLUSIVAMENTE: [DOS_VOLUMETRIC, SCAN_BRUTEFORCE, BEACONING_C2, WEB_ATTACK_EXPLOIT, BENIGN].\n\nNON usare titoli Markdown, grassetti o blocchi di codice nei campi di testo.\n\n\n--- DIRETTIVA TASSATIVA SUL VERDETTO FINALE ---\n1. ESEGUI 'compute_verdict_scores' ESCLUSIVAMENTE COME ULTIMO TOOL, dopo tutti gli altri tool obbligatori.\n2. Il campo 'scores' che il tool restituisce contiene punteggi 0-1 già normalizzati e direttamente\n   comparabili tra loro. NON tentare di ricalcolarli, verificarli o confrontarli a mano con le soglie\n   viste nei log dei singoli tool — il calcolo che li produce tiene già conto di tutti i segnali rilevanti.\n3. Il campo 'verdetto_suggerito' è VINCOLANTE al 100%. Il tuo VERDETTO finale deve coincidere\n   esattamente con questo valore, senza eccezioni, in nessun caso.\n4. È RIGOROSAMENTE VIETATO qualunque override manuale, anche se ritieni che i log mostrino\n   evidenze diverse — il tool ha già visto ed elaborato tutti quei dati.\n5. La MOTIVAZIONE deve spiegare, con le metriche reali del log, PERCHÉ quel verdetto è coerente\n   con l'evidenza — mai proporre un verdetto alternativo o discuterne la validità.\n\n\n\n--- REGOLA DI ATTRIBUZIONE EVIDENZE (VINCOLANTE) ---\n- Il campo 'pps_aggregati' / 'flussi_slowloris' conta SOLO per DOS_VOLUMETRIC.\n- Il campo 'porte_uniche_contattate' conta SOLO per SCAN_BRUTEFORCE.\n- Il campo 'cv' / 'anomaly_score' di detect_beaconing conta SOLO per BEACONING_C2.\n- Il campo 'anomalie_l7_trovate' conta SOLO per WEB_ATTACK_EXPLOIT.\nUn segnale alto in una di queste metriche NON deve MAI essere citato a supporto di una categoria diversa da quella a cui è assegnata qui.\nI tool 'get_traffic_summary', 'get_flow_features' e 'resolve_host_info' forniscono SOLO contesto descrittivo e non possono da soli giustificare un verdetto.\n\n\n--- SCHEMA DATABASE E SEMANTICA CAMPI (ndpi_flows) ---\n- id (bigint): Identificativo univoco della connessione.\n- community_id (varchar): Hash univoco 5-tuple della connessione di rete.\n- src_ip / dst_ip (varchar): IP sorgente e destinazione.\n- src_port / dst_port (int): Porte logiche sorgente e destinazione.\n- protocol (int): Protocollo di trasporto L4 (6=TCP, 17=UDP).\n- timestamp_start (timestamp): Ora di inizio del flusso di rete.\n- duration_ms (double): Durata della connessione in MILLISECONDI.\n- total_bytes, total_fwd_bytes, total_bwd_bytes (bigint): Volumi di dati scambiati.\n- fwd_packets, bwd_packets (bigint): Conteggio pacchetti inviati/ricevuti.\n- packet_rate (double): Frequenza media pacchetti/secondo (PPS) del flusso.\n- byte_rate (double): Velocita' di trasferimento in Byte/secondo.\n- iat_flow_avg / iat_flow_stddev (double): Media e deviazione standard dell'Inter-Arrival Time.\n- tcp_flags (int): Flag TCP.\n- ndpi_hostname (varchar): Nome di dominio/host estratto da nDPI.\n- payload_entropy (double): Entropia del payload.\n- app_hierarchy (varchar): Classificazione del protocollo applicativo.\n- infra_provider (varchar): Cloud Provider o ASN della destinazione.\n- tls_version, tls_cipher_suite, tls_ja4, tls_issuer_dn (varchar): Impronte TLS.\n\n\n--- PIANO D'AZIONE RIGIDO (SEQUENZA OBBLIGATORIA) ---\nPasso 1: get_rate_statistics\nPasso 2: get_host_port_distribution\nPasso 3: search_connection_attempts\nPasso 4: search_http_l7_anomalies\nPasso 5: detect_beaconing\nPasso 6: compute_verdict_scores COME ULTIMO STEP (mai prima)\nPasso 7: genera il report JSON usando ESATTAMENTE 'verdetto_suggerito' come 'verdetto'\n\nPrima di rispondere devi aver eseguito: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n"
+  },
+  {
+    "role": "user",
+    "content": "CONTESTO INDAGINE\n- IP Target: 192.168.10.50\n- Finestra Temporale: 2017-07-04T10:00:00 - 2017-07-04T10:15:00\n\nPIANO D'AZIONE SUGGERITO PER QUESTO SET DI DATI\nPIANO D'AZIONE INVESTIGATIVO: MAPPATURA ENDPOINT E ACCESSI\n- Ambito prioritario: Focus su porte di gestione (22, 3389, 21), scansione di PORTE DESTINAZIONE MULTIPLE e tentativi di login.\n- DISTINZIONE FONDAMENTALE: Le porte SORGENTE dinamiche/casuali verso un'unica porta DESTINAZIONE indicano un attacco o traffico verso un servizio (DoS/Web), NON uno SCAN_BRUTEFORCE. Lo Scan richiede multiple PORTE DESTINAZIONE distinte.\n\nISTRUZIONI DI METODO ANALITICO\n1. Esplorazione Obbligatoria: Ispeziona in sequenza: (a) Sintesi e Volumi -> (b) Distribuzione Porte e Tentativi di Connessione -> (c) Ispezione L7 / HTTP se presenti porte 80/443 -> (d) Verifiche su Beaconing / Periodicita'.\n2. Gestione Campione Ridotto / PortScan: Se 'get_host_port_distribution' o 'get_rate_statistics' indicano pochi flussi, NON presupporre immediatamente BENIGN. Esegui SEMPRE 'search_connection_attempts' (senza filtrare per singola porta, o verificando i SYN/connessioni fallite) per verificare se vi sono tentativi di PortScan stealth o intermittenti.\n3. Obbligo Ispezione L7: Se rilevi traffico verso porte 80, 443 o 8080, richiama 'search_http_l7_anomalies' prima di concludere l'analisi.\n4. Divieto di Chiusura Prematura: DEVI eseguire TUTTI i tool obbligatori prima di emettere il verdetto: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n\nInizia l'ispezione richiamando il primo tool idoneo."
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+        "type": "function",
+        "function": {
+          "name": "get_rate_statistics",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+    "name": "get_rate_statistics",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato_anomalia\": \"ANOMALIA_RILEVATA\",\n    \"diagnosi_preliminare\": \"CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candidato per DOS_VOLUMETRIC.\"\n  },\n  \"metriche_chiave\": {\n    \"pps_aggregati\": 37.46,\n    \"burst_pps\": 37.54,\n    \"totale_flussi\": 1197,\n    \"flussi_web_totali\": 0,\n    \"flussi_per_sec\": 1.33,\n    \"burst_flussi_per_sec\": 1.33,\n    \"web_rps\": 0.0,\n    \"burst_web_rps\": 0.0,\n    \"flussi_oltre_soglia_pps\": 30,\n    \"flussi_slowloris\": 0,\n    \"max_pps_singolo_flusso\": 71.71,\n    \"durata_burst_sec\": 898.0,\n    \"durata_burst_web_sec\": 0.0\n  },\n  \"tempo_sql_sec\": 0.2386\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+        "type": "function",
+        "function": {
+          "name": "get_host_port_distribution",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+    "name": "get_host_port_distribution",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"porte_uniche_contattate\": 19,\n    \"porte_probe_count\": 14,\n    \"sospetto_portscan\": true,\n    \"sospetto_bruteforce\": true,\n    \"porte_target_bruteforce\": [\n      21,\n      53\n    ],\n    \"distribuzione_top\": [\n      {\n        \"dst_port\": 21,\n        \"num_flussi\": 993,\n        \"sorgenti_distinte\": 6\n      },\n      {\n        \"dst_port\": 53,\n        \"num_flussi\": 135,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 22,\n        \"num_flussi\": 40,\n        \"sorgenti_distinte\": 9\n      },\n      {\n        \"dst_port\": 88,\n        \"num_flussi\": 8,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 139,\n        \"num_flussi\": 5,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 389,\n        \"num_flussi\": 3,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"dst_port\": 3268,\n        \"num_flussi\": 1,\n        \"sorgenti_distinte\": 1\n      },\n      {\n        \"ds\n\n[... TRONCATO A 1000 CHAR (su 1317 orig.) ...]"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+        "type": "function",
+        "function": {
+          "name": "search_connection_attempts",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+    "name": "search_connection_attempts",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"pattern_sospetti_rilevati\": 1,\n    \"esito\": \"Rilevati 1 pattern sospetti.\",\n    \"target_analizzato\": \"192.168.10.50\",\n    \"target_port_analizzata\": \"TUTTE_LE_PORTE\"\n  },\n  \"tempo_sql_reale_sec\": 0.126495,\n  \"totale_coppie_ip_rilevate\": 32,\n  \"tentativi_connessione\": [\n    {\n      \"src_ip\": \"172.16.0.1\",\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 21,\n      \"tentativi_totali\": 986,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"SOSPETTO_BRUTEFORCE\"\n    },\n    {\n      \"src_ip\": \"192.168.10.50\",\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 53,\n      \"tentativi_totali\": 135,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"TRAFFICO_ORDINARIO_LAN\"\n    },\n    {\n      \"src_ip\": \"192.168.10.50\",\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 88,\n      \"tentativi_totali\": 8,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"TRAFFICO_ORDINARIO_LAN\"\n    },\n    {\n      \"src_ip\": \"192.168\n\n[... TRONCATO A 1000 CHAR (su 1551 orig.) ...]"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "aDApjrJ3Q0G6d42ZMgDKySPi4RubHQlT",
+        "type": "function",
+        "function": {
+          "name": "search_http_l7_anomalies",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"offset\": 0, \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "aDApjrJ3Q0G6d42ZMgDKySPi4RubHQlT",
+    "name": "search_http_l7_anomalies",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"anomalie_l7_trovate\": 0,\n    \"flussi_web_esaminati\": 0,\n    \"target_colpiti_count\": 0,\n    \"sospetto_web_bruteforce\": false,\n    \"esito\": \"Nessun traffico HTTP/L7 trovato nella finestra temporale.\"\n  },\n  \"campione_anomalie\": [],\n  \"tempo_sql_sec\": 0.1011\n}"
+  }
+]
+
+
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+[RISPOSTA RICEVUTA DALL'LLM]:
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "CEa7xl2AdAoQnaP2wHPWJ7XV3QOVyZjA",
+      "type": "function",
+      "function": {
+        "name": "detect_beaconing",
+        "arguments": "{\"end_time\":\"2017-07-04T10:15:00\",\"ip_target\":\"192.168.10.50\",\"start_time\":\"2017-07-04T10:00:00\"}"
+      }
+    }
+  ]
+}
+
+
+ -> [MCP TOOL]: Esecuzione 'detect_beaconing' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {   "sintesi_smart": {     "beaconing_c2_rilevato": false,     "diagnosi": "Nessuna minaccia C2 rilevante."   },   "candidati_top": [     {       "dst_ip": "192.168.10.50",       "...
+[RISULTATO TOOL INTEGRALE]:
+{
+  "sintesi_smart": {
+    "beaconing_c2_rilevato": false,
+    "diagnosi": "Nessuna minaccia C2 rilevante."
+  },
+  "candidati_top": [
+    {
+      "dst_ip": "192.168.10.50",
+      "dst_port": 22,
+      "hostname": "N/A",
+      "totale_connessioni": 40,
+      "intervallo_medio_sec": 21.1,
+      "cv": 1.346,
+      "anomaly_score": 0,
+      "tags": [
+        "INTERNAL_LAN_KEEPALIVE"
+      ]
+    },
+    {
+      "dst_ip": "192.168.10.50",
+      "dst_port": 21,
+      "hostname": "N/A",
+      "totale_connessioni": 993,
+      "intervallo_medio_sec": 0.6,
+      "cv": 1.645,
+      "anomaly_score": 0,
+      "tags": [
+        "INTERNAL_LAN_KEEPALIVE"
+      ]
+    },
+    {
+      "dst_ip": "192.168.10.3",
+      "dst_port": 53,
+      "hostname": "macpc",
+      "totale_connessioni": 135,
+      "intervallo_medio_sec": 5.4,
+      "cv": 5.348,
+      "anomaly_score": 0,
+      "tags": [
+        "INTERNAL_LAN_KEEPALIVE"
+      ]
+    }
+  ],
+  "tempo_sql_sec": 0.1156
+}
+
+
+
+==================== TURNO 6/10 [ESPLORAZIONE] ====================
+[PROMPT INVIATO ALL'LLM]:
+[
+  {
+    "role": "system",
+    "content": "Sei un agente esperto in Network Forensics e Threat Detection.\nIl tuo compito è eseguire i tool obbligatori nell'ordine indicato ed emettere il report forense finale in formato JSON, adottando il verdetto deterministico calcolato da 'compute_verdict_scores'.\n\nI VERDETTI CONSENTITI SONO ESCLUSIVAMENTE: [DOS_VOLUMETRIC, SCAN_BRUTEFORCE, BEACONING_C2, WEB_ATTACK_EXPLOIT, BENIGN].\n\nNON usare titoli Markdown, grassetti o blocchi di codice nei campi di testo.\n\n\n--- DIRETTIVA TASSATIVA SUL VERDETTO FINALE ---\n1. ESEGUI 'compute_verdict_scores' ESCLUSIVAMENTE COME ULTIMO TOOL, dopo tutti gli altri tool obbligatori.\n2. Il campo 'scores' che il tool restituisce contiene punteggi 0-1 già normalizzati e direttamente\n   comparabili tra loro. NON tentare di ricalcolarli, verificarli o confrontarli a mano con le soglie\n   viste nei log dei singoli tool — il calcolo che li produce tiene già conto di tutti i segnali rilevanti.\n3. Il campo 'verdetto_suggerito' è VINCOLANTE al 100%. Il tuo VERDETTO finale deve coincidere\n   esattamente con questo valore, senza eccezioni, in nessun caso.\n4. È RIGOROSAMENTE VIETATO qualunque override manuale, anche se ritieni che i log mostrino\n   evidenze diverse — il tool ha già visto ed elaborato tutti quei dati.\n5. La MOTIVAZIONE deve spiegare, con le metriche reali del log, PERCHÉ quel verdetto è coerente\n   con l'evidenza — mai proporre un verdetto alternativo o discuterne la validità.\n\n\n\n--- REGOLA DI ATTRIBUZIONE EVIDENZE (VINCOLANTE) ---\n- Il campo 'pps_aggregati' / 'flussi_slowloris' conta SOLO per DOS_VOLUMETRIC.\n- Il campo 'porte_uniche_contattate' conta SOLO per SCAN_BRUTEFORCE.\n- Il campo 'cv' / 'anomaly_score' di detect_beaconing conta SOLO per BEACONING_C2.\n- Il campo 'anomalie_l7_trovate' conta SOLO per WEB_ATTACK_EXPLOIT.\nUn segnale alto in una di queste metriche NON deve MAI essere citato a supporto di una categoria diversa da quella a cui è assegnata qui.\nI tool 'get_traffic_summary', 'get_flow_features' e 'resolve_host_info' forniscono SOLO contesto descrittivo e non possono da soli giustificare un verdetto.\n\n\n--- SCHEMA DATABASE E SEMANTICA CAMPI (ndpi_flows) ---\n- id (bigint): Identificativo univoco della connessione.\n- community_id (varchar): Hash univoco 5-tuple della connessione di rete.\n- src_ip / dst_ip (varchar): IP sorgente e destinazione.\n- src_port / dst_port (int): Porte logiche sorgente e destinazione.\n- protocol (int): Protocollo di trasporto L4 (6=TCP, 17=UDP).\n- timestamp_start (timestamp): Ora di inizio del flusso di rete.\n- duration_ms (double): Durata della connessione in MILLISECONDI.\n- total_bytes, total_fwd_bytes, total_bwd_bytes (bigint): Volumi di dati scambiati.\n- fwd_packets, bwd_packets (bigint): Conteggio pacchetti inviati/ricevuti.\n- packet_rate (double): Frequenza media pacchetti/secondo (PPS) del flusso.\n- byte_rate (double): Velocita' di trasferimento in Byte/secondo.\n- iat_flow_avg / iat_flow_stddev (double): Media e deviazione standard dell'Inter-Arrival Time.\n- tcp_flags (int): Flag TCP.\n- ndpi_hostname (varchar): Nome di dominio/host estratto da nDPI.\n- payload_entropy (double): Entropia del payload.\n- app_hierarchy (varchar): Classificazione del protocollo applicativo.\n- infra_provider (varchar): Cloud Provider o ASN della destinazione.\n- tls_version, tls_cipher_suite, tls_ja4, tls_issuer_dn (varchar): Impronte TLS.\n\n\n--- PIANO D'AZIONE RIGIDO (SEQUENZA OBBLIGATORIA) ---\nPasso 1: get_rate_statistics\nPasso 2: get_host_port_distribution\nPasso 3: search_connection_attempts\nPasso 4: search_http_l7_anomalies\nPasso 5: detect_beaconing\nPasso 6: compute_verdict_scores COME ULTIMO STEP (mai prima)\nPasso 7: genera il report JSON usando ESATTAMENTE 'verdetto_suggerito' come 'verdetto'\n\nPrima di rispondere devi aver eseguito: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n"
+  },
+  {
+    "role": "user",
+    "content": "CONTESTO INDAGINE\n- IP Target: 192.168.10.50\n- Finestra Temporale: 2017-07-04T10:00:00 - 2017-07-04T10:15:00\n\nPIANO D'AZIONE SUGGERITO PER QUESTO SET DI DATI\nPIANO D'AZIONE INVESTIGATIVO: MAPPATURA ENDPOINT E ACCESSI\n- Ambito prioritario: Focus su porte di gestione (22, 3389, 21), scansione di PORTE DESTINAZIONE MULTIPLE e tentativi di login.\n- DISTINZIONE FONDAMENTALE: Le porte SORGENTE dinamiche/casuali verso un'unica porta DESTINAZIONE indicano un attacco o traffico verso un servizio (DoS/Web), NON uno SCAN_BRUTEFORCE. Lo Scan richiede multiple PORTE DESTINAZIONE distinte.\n\nISTRUZIONI DI METODO ANALITICO\n1. Esplorazione Obbligatoria: Ispeziona in sequenza: (a) Sintesi e Volumi -> (b) Distribuzione Porte e Tentativi di Connessione -> (c) Ispezione L7 / HTTP se presenti porte 80/443 -> (d) Verifiche su Beaconing / Periodicita'.\n2. Gestione Campione Ridotto / PortScan: Se 'get_host_port_distribution' o 'get_rate_statistics' indicano pochi flussi, NON presupporre immediatamente BENIGN. Esegui SEMPRE 'search_connection_attempts' (senza filtrare per singola porta, o verificando i SYN/connessioni fallite) per verificare se vi sono tentativi di PortScan stealth o intermittenti.\n3. Obbligo Ispezione L7: Se rilevi traffico verso porte 80, 443 o 8080, richiama 'search_http_l7_anomalies' prima di concludere l'analisi.\n4. Divieto di Chiusura Prematura: DEVI eseguire TUTTI i tool obbligatori prima di emettere il verdetto: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n\nInizia l'ispezione richiamando il primo tool idoneo."
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+        "type": "function",
+        "function": {
+          "name": "get_rate_statistics",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+    "name": "get_rate_statistics",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato_anomalia\": \"ANOMALIA_RILEVATA\",\n    \"diagnosi_preliminare\": \"CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candidato per DOS_VOLUMETRIC.\"\n  },\n  \"metriche_chiave\": {\n    \"pps_aggregati\": 37.46,\n    \"burst_pps\": 37.54,\n    \"totale_flussi\": 1197,\n    \"flussi_web_totali\": 0,\n    \"flussi_per_sec\": 1.33,\n    \"burst_flussi_per_sec\": 1.33,\n    \"web_rps\": 0.0,\n    \"burst_web_rps\": 0.0,\n    \"flussi_oltre_soglia_pps\": 30,\n    \"flussi_slowloris\": 0,\n    \"max_pps_singolo_flusso\": 71.71,\n    \"durata_burst_sec\": 898.0,\n    \"durata_burst_web_sec\": 0.0\n  },\n  \"tempo_sql_sec\": 0.2386\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+        "type": "function",
+        "function": {
+          "name": "get_host_port_distribution",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+    "name": "get_host_port_distribution",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"porte_uniche_contattate\": 19,\n    \"porte_probe_count\": 14,\n    \"sospetto_portscan\": true,\n    \"sospetto_bruteforce\": true,\n    \"porte_target_bruteforce\": [\n      21,\n      53\n    ],\n    \"distribuzione_top\": [\n      {\n        \"dst_port\": 21,\n        \"num_flussi\": 993,\n        \"sorgenti_distinte\": 6\n      },\n      {\n        \"dst_port\": 53,\n\n[... RISULTATO VECCHIO TRONCATO (1317 char orig.) ...]"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+        "type": "function",
+        "function": {
+          "name": "search_connection_attempts",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+    "name": "search_connection_attempts",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"pattern_sospetti_rilevati\": 1,\n    \"esito\": \"Rilevati 1 pattern sospetti.\",\n    \"target_analizzato\": \"192.168.10.50\",\n    \"target_port_analizzata\": \"TUTTE_LE_PORTE\"\n  },\n  \"tempo_sql_reale_sec\": 0.126495,\n  \"totale_coppie_ip_rilevate\": 32,\n  \"tentativi_connessione\": [\n    {\n      \"src_ip\": \"172.16.0.1\",\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 21,\n      \"tentativi_totali\": 986,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"SOSPETTO_BRUTEFORCE\"\n    },\n    {\n      \"src_ip\": \"192.168.10.50\",\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 53,\n      \"tentativi_totali\": 135,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"TRAFFICO_ORDINARIO_LAN\"\n    },\n    {\n      \"src_ip\": \"192.168.10.50\",\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 88,\n      \"tentativi_totali\": 8,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"TRAFFICO_ORDINARIO_LAN\"\n    },\n    {\n      \"src_ip\": \"192.168\n\n[... TRONCATO A 1000 CHAR (su 1551 orig.) ...]"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "aDApjrJ3Q0G6d42ZMgDKySPi4RubHQlT",
+        "type": "function",
+        "function": {
+          "name": "search_http_l7_anomalies",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"offset\": 0, \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "aDApjrJ3Q0G6d42ZMgDKySPi4RubHQlT",
+    "name": "search_http_l7_anomalies",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"anomalie_l7_trovate\": 0,\n    \"flussi_web_esaminati\": 0,\n    \"target_colpiti_count\": 0,\n    \"sospetto_web_bruteforce\": false,\n    \"esito\": \"Nessun traffico HTTP/L7 trovato nella finestra temporale.\"\n  },\n  \"campione_anomalie\": [],\n  \"tempo_sql_sec\": 0.1011\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "CEa7xl2AdAoQnaP2wHPWJ7XV3QOVyZjA",
+        "type": "function",
+        "function": {
+          "name": "detect_beaconing",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "CEa7xl2AdAoQnaP2wHPWJ7XV3QOVyZjA",
+    "name": "detect_beaconing",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"beaconing_c2_rilevato\": false,\n    \"diagnosi\": \"Nessuna minaccia C2 rilevante.\"\n  },\n  \"candidati_top\": [\n    {\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 22,\n      \"hostname\": \"N/A\",\n      \"totale_connessioni\": 40,\n      \"intervallo_medio_sec\": 21.1,\n      \"cv\": 1.346,\n      \"anomaly_score\": 0,\n      \"tags\": [\n        \"INTERNAL_LAN_KEEPALIVE\"\n      ]\n    },\n    {\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 21,\n      \"hostname\": \"N/A\",\n      \"totale_connessioni\": 993,\n      \"intervallo_medio_sec\": 0.6,\n      \"cv\": 1.645,\n      \"anomaly_score\": 0,\n      \"tags\": [\n        \"INTERNAL_LAN_KEEPALIVE\"\n      ]\n    },\n    {\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 53,\n      \"hostname\": \"macpc\",\n      \"totale_connessioni\": 135,\n      \"intervallo_medio_sec\": 5.4,\n      \"cv\": 5.348,\n      \"anomaly_score\": 0,\n      \"tags\": [\n        \"INTERNAL_LAN_KEEPALIVE\"\n      ]\n    }\n  ],\n  \"tempo_sql_sec\": 0.1156\n}"
+  }
+]
+
+
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+[RISPOSTA RICEVUTA DALL'LLM]:
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "svR216WN1D0EpxgrPpY6VTvq1H9kUg74",
+      "type": "function",
+      "function": {
+        "name": "compute_verdict_scores",
+        "arguments": "{\"end_time\":\"2017-07-04T10:15:00\",\"ip_target\":\"192.168.10.50\",\"start_time\":\"2017-07-04T10:00:00\"}"
+      }
+    }
+  ]
+}
+
+
+ -> [MCP TOOL]: Esecuzione 'compute_verdict_scores' con argomenti {"end_time": "2017-07-04T10:15:00", "ip_target": "192.168.10.50", "start_time": "2017-07-04T10:00:00"}
+ -> [TOOL RESULT]: {"status": "success", "verdetto_suggerito": "SCAN_BRUTEFORCE", "score_dominante": 0.9, "scores": {"dos_score": 0.0, "web_score": 0.0, "scan_score": 0.9, "beacon_score": 0.0}, "metr...
+[RISULTATO TOOL INTEGRALE]:
+{"status": "success", "verdetto_suggerito": "SCAN_BRUTEFORCE", "score_dominante": 0.9, "scores": {"dos_score": 0.0, "web_score": 0.0, "scan_score": 0.9, "beacon_score": 0.0}, "metriche_chiave": {"totale_flussi": 1197, "flussi_web": 0, "anomalie_l7": 0, "porte_uniche_total": 19, "sospetto_web_bruteforce": false}, "ip_target": "192.168.10.50"}
+
+
+
+==================== TURNO 7/10 [ESPLORAZIONE] ====================
+[PROMPT INVIATO ALL'LLM]:
+[
+  {
+    "role": "system",
+    "content": "Sei un agente esperto in Network Forensics e Threat Detection.\nIl tuo compito è eseguire i tool obbligatori nell'ordine indicato ed emettere il report forense finale in formato JSON, adottando il verdetto deterministico calcolato da 'compute_verdict_scores'.\n\nI VERDETTI CONSENTITI SONO ESCLUSIVAMENTE: [DOS_VOLUMETRIC, SCAN_BRUTEFORCE, BEACONING_C2, WEB_ATTACK_EXPLOIT, BENIGN].\n\nNON usare titoli Markdown, grassetti o blocchi di codice nei campi di testo.\n\n\n--- DIRETTIVA TASSATIVA SUL VERDETTO FINALE ---\n1. ESEGUI 'compute_verdict_scores' ESCLUSIVAMENTE COME ULTIMO TOOL, dopo tutti gli altri tool obbligatori.\n2. Il campo 'scores' che il tool restituisce contiene punteggi 0-1 già normalizzati e direttamente\n   comparabili tra loro. NON tentare di ricalcolarli, verificarli o confrontarli a mano con le soglie\n   viste nei log dei singoli tool — il calcolo che li produce tiene già conto di tutti i segnali rilevanti.\n3. Il campo 'verdetto_suggerito' è VINCOLANTE al 100%. Il tuo VERDETTO finale deve coincidere\n   esattamente con questo valore, senza eccezioni, in nessun caso.\n4. È RIGOROSAMENTE VIETATO qualunque override manuale, anche se ritieni che i log mostrino\n   evidenze diverse — il tool ha già visto ed elaborato tutti quei dati.\n5. La MOTIVAZIONE deve spiegare, con le metriche reali del log, PERCHÉ quel verdetto è coerente\n   con l'evidenza — mai proporre un verdetto alternativo o discuterne la validità.\n\n\n\n--- REGOLA DI ATTRIBUZIONE EVIDENZE (VINCOLANTE) ---\n- Il campo 'pps_aggregati' / 'flussi_slowloris' conta SOLO per DOS_VOLUMETRIC.\n- Il campo 'porte_uniche_contattate' conta SOLO per SCAN_BRUTEFORCE.\n- Il campo 'cv' / 'anomaly_score' di detect_beaconing conta SOLO per BEACONING_C2.\n- Il campo 'anomalie_l7_trovate' conta SOLO per WEB_ATTACK_EXPLOIT.\nUn segnale alto in una di queste metriche NON deve MAI essere citato a supporto di una categoria diversa da quella a cui è assegnata qui.\nI tool 'get_traffic_summary', 'get_flow_features' e 'resolve_host_info' forniscono SOLO contesto descrittivo e non possono da soli giustificare un verdetto.\n\n\n--- SCHEMA DATABASE E SEMANTICA CAMPI (ndpi_flows) ---\n- id (bigint): Identificativo univoco della connessione.\n- community_id (varchar): Hash univoco 5-tuple della connessione di rete.\n- src_ip / dst_ip (varchar): IP sorgente e destinazione.\n- src_port / dst_port (int): Porte logiche sorgente e destinazione.\n- protocol (int): Protocollo di trasporto L4 (6=TCP, 17=UDP).\n- timestamp_start (timestamp): Ora di inizio del flusso di rete.\n- duration_ms (double): Durata della connessione in MILLISECONDI.\n- total_bytes, total_fwd_bytes, total_bwd_bytes (bigint): Volumi di dati scambiati.\n- fwd_packets, bwd_packets (bigint): Conteggio pacchetti inviati/ricevuti.\n- packet_rate (double): Frequenza media pacchetti/secondo (PPS) del flusso.\n- byte_rate (double): Velocita' di trasferimento in Byte/secondo.\n- iat_flow_avg / iat_flow_stddev (double): Media e deviazione standard dell'Inter-Arrival Time.\n- tcp_flags (int): Flag TCP.\n- ndpi_hostname (varchar): Nome di dominio/host estratto da nDPI.\n- payload_entropy (double): Entropia del payload.\n- app_hierarchy (varchar): Classificazione del protocollo applicativo.\n- infra_provider (varchar): Cloud Provider o ASN della destinazione.\n- tls_version, tls_cipher_suite, tls_ja4, tls_issuer_dn (varchar): Impronte TLS.\n\n\n--- PIANO D'AZIONE RIGIDO (SEQUENZA OBBLIGATORIA) ---\nPasso 1: get_rate_statistics\nPasso 2: get_host_port_distribution\nPasso 3: search_connection_attempts\nPasso 4: search_http_l7_anomalies\nPasso 5: detect_beaconing\nPasso 6: compute_verdict_scores COME ULTIMO STEP (mai prima)\nPasso 7: genera il report JSON usando ESATTAMENTE 'verdetto_suggerito' come 'verdetto'\n\nPrima di rispondere devi aver eseguito: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n"
+  },
+  {
+    "role": "user",
+    "content": "CONTESTO INDAGINE\n- IP Target: 192.168.10.50\n- Finestra Temporale: 2017-07-04T10:00:00 - 2017-07-04T10:15:00\n\nPIANO D'AZIONE SUGGERITO PER QUESTO SET DI DATI\nPIANO D'AZIONE INVESTIGATIVO: MAPPATURA ENDPOINT E ACCESSI\n- Ambito prioritario: Focus su porte di gestione (22, 3389, 21), scansione di PORTE DESTINAZIONE MULTIPLE e tentativi di login.\n- DISTINZIONE FONDAMENTALE: Le porte SORGENTE dinamiche/casuali verso un'unica porta DESTINAZIONE indicano un attacco o traffico verso un servizio (DoS/Web), NON uno SCAN_BRUTEFORCE. Lo Scan richiede multiple PORTE DESTINAZIONE distinte.\n\nISTRUZIONI DI METODO ANALITICO\n1. Esplorazione Obbligatoria: Ispeziona in sequenza: (a) Sintesi e Volumi -> (b) Distribuzione Porte e Tentativi di Connessione -> (c) Ispezione L7 / HTTP se presenti porte 80/443 -> (d) Verifiche su Beaconing / Periodicita'.\n2. Gestione Campione Ridotto / PortScan: Se 'get_host_port_distribution' o 'get_rate_statistics' indicano pochi flussi, NON presupporre immediatamente BENIGN. Esegui SEMPRE 'search_connection_attempts' (senza filtrare per singola porta, o verificando i SYN/connessioni fallite) per verificare se vi sono tentativi di PortScan stealth o intermittenti.\n3. Obbligo Ispezione L7: Se rilevi traffico verso porte 80, 443 o 8080, richiama 'search_http_l7_anomalies' prima di concludere l'analisi.\n4. Divieto di Chiusura Prematura: DEVI eseguire TUTTI i tool obbligatori prima di emettere il verdetto: 'search_connection_attempts', 'get_rate_statistics', 'detect_beaconing', 'search_http_l7_anomalies', 'get_host_port_distribution', 'compute_verdict_scores'.\n\nInizia l'ispezione richiamando il primo tool idoneo."
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+        "type": "function",
+        "function": {
+          "name": "get_rate_statistics",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "Fwskr8kvTKBt1dfLqPaiNDZbRZJYLCIm",
+    "name": "get_rate_statistics",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato_anomalia\": \"ANOMALIA_RILEVATA\",\n    \"diagnosi_preliminare\": \"CRITICO: Rilevato traffico ad alto rate/flood (Burst PPS: 37.54, Web RPS: 0.0). Candidato per DOS_VOLUMETRIC.\"\n  },\n  \"metriche_chiave\": {\n    \"pps_aggregati\": 37.46,\n    \"burst_pps\": 37.54,\n    \"totale_flussi\": 1197,\n    \"flussi_web_totali\": 0,\n    \"flussi_per_sec\": 1.33,\n    \"burst_flussi_per_sec\": 1.33,\n    \"web_rps\": 0.0,\n    \"burst_web_rps\": 0.0,\n    \"flussi_oltre_soglia_pps\": 30,\n    \"flussi_slowloris\": 0,\n    \"max_pps_singolo_flusso\": 71.71,\n    \"durata_burst_sec\": 898.0,\n    \"durata_burst_web_sec\": 0.0\n  },\n  \"tempo_sql_sec\": 0.2386\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+        "type": "function",
+        "function": {
+          "name": "get_host_port_distribution",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "EzhJJ63TLWY1k50su6yCVA78unNESDAZ",
+    "name": "get_host_port_distribution",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"porte_uniche_contattate\": 19,\n    \"porte_probe_count\": 14,\n    \"sospetto_portscan\": true,\n    \"sospetto_bruteforce\": true,\n    \"porte_target_bruteforce\": [\n      21,\n      53\n    ],\n    \"distribuzione_top\": [\n      {\n        \"dst_port\": 21,\n        \"num_flussi\": 993,\n        \"sorgenti_distinte\": 6\n      },\n      {\n        \"dst_port\": 53,\n\n[... RISULTATO VECCHIO TRONCATO (1317 char orig.) ...]"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+        "type": "function",
+        "function": {
+          "name": "search_connection_attempts",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "gvzcYOW3CMtWlnAAmnAwcD2L5pSWmnku",
+    "name": "search_connection_attempts",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"stato\": \"ANOMALIA_RILEVATA\",\n    \"pattern_sospetti_rilevati\": 1,\n    \"esito\": \"Rilevati 1 pattern sospetti.\",\n    \"target_analizzato\": \"192.168.10.50\",\n    \"target_port_analizzata\": \"TUTTE_LE_PORTE\"\n  },\n  \"tempo_sql_reale_sec\": 0.126495,\n  \"totale_coppie_ip_rilevate\": 32,\n  \"tentativi_connessione\": [\n    {\n      \"src_ip\": \"172.16.0.1\",\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 21,\n      \"tentativi_totali\": 986,\n      \"porte_distinte\": 1,\n      \"valutazione_mcp\": \"SOSPETTO_BRUTEFORCE\"\n    },\n\n[... RISULTATO VECCHIO TRONCATO (1551 char orig.) ...]"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "aDApjrJ3Q0G6d42ZMgDKySPi4RubHQlT",
+        "type": "function",
+        "function": {
+          "name": "search_http_l7_anomalies",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"offset\": 0, \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "aDApjrJ3Q0G6d42ZMgDKySPi4RubHQlT",
+    "name": "search_http_l7_anomalies",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"anomalie_l7_trovate\": 0,\n    \"flussi_web_esaminati\": 0,\n    \"target_colpiti_count\": 0,\n    \"sospetto_web_bruteforce\": false,\n    \"esito\": \"Nessun traffico HTTP/L7 trovato nella finestra temporale.\"\n  },\n  \"campione_anomalie\": [],\n  \"tempo_sql_sec\": 0.1011\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "CEa7xl2AdAoQnaP2wHPWJ7XV3QOVyZjA",
+        "type": "function",
+        "function": {
+          "name": "detect_beaconing",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "CEa7xl2AdAoQnaP2wHPWJ7XV3QOVyZjA",
+    "name": "detect_beaconing",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\n  \"sintesi_smart\": {\n    \"beaconing_c2_rilevato\": false,\n    \"diagnosi\": \"Nessuna minaccia C2 rilevante.\"\n  },\n  \"candidati_top\": [\n    {\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 22,\n      \"hostname\": \"N/A\",\n      \"totale_connessioni\": 40,\n      \"intervallo_medio_sec\": 21.1,\n      \"cv\": 1.346,\n      \"anomaly_score\": 0,\n      \"tags\": [\n        \"INTERNAL_LAN_KEEPALIVE\"\n      ]\n    },\n    {\n      \"dst_ip\": \"192.168.10.50\",\n      \"dst_port\": 21,\n      \"hostname\": \"N/A\",\n      \"totale_connessioni\": 993,\n      \"intervallo_medio_sec\": 0.6,\n      \"cv\": 1.645,\n      \"anomaly_score\": 0,\n      \"tags\": [\n        \"INTERNAL_LAN_KEEPALIVE\"\n      ]\n    },\n    {\n      \"dst_ip\": \"192.168.10.3\",\n      \"dst_port\": 53,\n      \"hostname\": \"macpc\",\n      \"totale_connessioni\": 135,\n      \"intervallo_medio_sec\": 5.4,\n      \"cv\": 5.348,\n      \"anomaly_score\": 0,\n      \"tags\": [\n        \"INTERNAL_LAN_KEEPALIVE\"\n      ]\n    }\n  ],\n  \"tempo_sql_sec\": 0.1156\n}"
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "id": "svR216WN1D0EpxgrPpY6VTvq1H9kUg74",
+        "type": "function",
+        "function": {
+          "name": "compute_verdict_scores",
+          "arguments": "{\"end_time\": \"2017-07-04T10:15:00\", \"ip_target\": \"192.168.10.50\", \"start_time\": \"2017-07-04T10:00:00\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "svR216WN1D0EpxgrPpY6VTvq1H9kUg74",
+    "name": "compute_verdict_scores",
+    "content": "[FOCUS ATTIVO: cat_c]\n{\"status\": \"success\", \"verdetto_suggerito\": \"SCAN_BRUTEFORCE\", \"score_dominante\": 0.9, \"scores\": {\"dos_score\": 0.0, \"web_score\": 0.0, \"scan_score\": 0.9, \"beacon_score\": 0.0}, \"metriche_chiave\": {\"totale_flussi\": 1197, \"flussi_web\": 0, \"anomalie_l7\": 0, \"porte_uniche_total\": 19, \"sospetto_web_bruteforce\": false}, \"ip_target\": \"192.168.10.50\"}"
+  }
+]
+
+
+ -> [CALL LLM]: Invio in corso (Tentativo 1/2)...
+[RISPOSTA RICEVUTA DALL'LLM]:
+{
+  "role": "assistant",
+  "content": "{\n  \"ip_target\": \"192.168.10.50\",\n  \"finestra_temporale\": \"2017-07-04T10:00:00 - 2017-07-04T10:15:00\",\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"confidenza\": 0.9,\n  \"motivazione\": \"L'analisi evidenzia un pattern coerente con SCAN_BRUTEFORCE: get_host_port_distribution riporta 19 porte uniche contattate (soglia >=15 per Port Scan confermato) con 14 porte in stato probe e flag sospetto_portscan=true e sospetto_bruteforce=true, con porte target di brute force su 21 (FTP) e 53 (DNS). search_connection_attempts conferma 986 tentativi di connessione verso la porta 21 da sorgente 172.16.0.1 (valutazione SOSPETTO_BRUTEFORCE) e 32 coppie IP rilevate. get_rate_statistics mostra 1197 flussi totali con pps_aggregati 37.46 (ben sotto la soglia volumetrica 3000 PPS) e 0 flussi_slowloris, escludendo DOS_VOLUMETRIC. search_http_l7_anomalies restituisce 0 anomalie L7 e 0 flussi web esaminati, escludendo WEB_ATTACK_EXPLOIT. detect_beaconing non rileva beaconing C2 (cv alto >0.6 su tutti i candidati, anomaly_score 0, tag INTERNAL_LAN_KEEPALIVE), escludendo BEACONING_C2. Il verdetto deterministico calcolato da compute_verdict_scores (scan_score 0.9, dominante) è coerente con l'evidenza: dispersione su 19 porte di destinazione distinte e tentativi ripetuti su porta 21.\",\n  \"evidenze\": {\n    \"porte_uniche_contattate\": 19,\n    \"porte_probe_count\": 14,\n    \"sospetto_portscan\": true,\n    \"sospetto_bruteforce\": true,\n    \"porte_target_bruteforce\": [21, 53],\n    \"tentativi_connessione_porta_21\": 986,\n    \"sorgente_principale\": \"172.16.0.1\",\n    \"totale_flussi\": 1197,\n    \"pps_aggregati\": 37.46,\n    \"flussi_slowloris\": 0,\n    \"anomalie_l7_trovate\": 0,\n    \"flussi_web_totali\": 0,\n    \"beaconing_c2_rilevato\": false,\n    \"cv_massimo_candidati\": 5.348,\n    \"anomaly_score_beaconing\": 0\n  },\n  \"scores\": {\n    \"dos_score\": 0.0,\n    \"web_score\": 0.0,\n    \"scan_score\": 0.9,\n    \"beacon_score\": 0.0\n  }\n}",
+  "tool_calls": []
+}
+
+
+ -> [LLM Thought]: {
+  "ip_target": "192.168.10.50",
+  "finestra_temporale": "2017-07-04T10:00:00 - 2017-07-04T10:15:00",
+  "verdetto": "SCAN_BRUTEFORCE",
+  "confidenza": 0.9,
+  "motivazione": "L'analisi evidenzia un pattern coerente con SCAN_BRUTEFORCE: get_host_port_distribution riporta 19 porte uniche contattate (soglia >=15 per Port Scan confermato) con 14 porte in stato probe e flag sospetto_portscan=true e sospetto_bruteforce=true, con porte target di brute force su 21 (FTP) e 53 (DNS). search_connection_attempts conferma 986 tentativi di connessione verso la porta 21 da sorgente 172.16.0.1 (valutazione SOSPETTO_BRUTEFORCE) e 32 coppie IP rilevate. get_rate_statistics mostra 1197 flussi totali con pps_aggregati 37.46 (ben sotto la soglia volumetrica 3000 PPS) e 0 flussi_slowloris, escludendo DOS_VOLUMETRIC. search_http_l7_anomalies restituisce 0 anomalie L7 e 0 flussi web esaminati, escludendo WEB_ATTACK_EXPLOIT. detect_beaconing non rileva beaconing C2 (cv alto >0.6 su tutti i candidati, anomaly_score 0, tag INTERNAL_LAN_KEEPALIVE), escludendo BEACONING_C2. Il verdetto deterministico calcolato da compute_verdict_scores (scan_score 0.9, dominante) è coerente con l'evidenza: dispersione su 19 porte di destinazione distinte e tentativi ripetuti su porta 21.",
+  "evidenze": {
+    "porte_uniche_contattate": 19,
+    "porte_probe_count": 14,
+    "sospetto_portscan": true,
+    "sospetto_bruteforce": true,
+    "porte_target_bruteforce": [21, 53],
+    "tentativi_connessione_porta_21": 986,
+    "sorgente_principale": "172.16.0.1",
+    "totale_flussi": 1197,
+    "pps_aggregati": 37.46,
+    "flussi_slowloris": 0,
+    "anomalie_l7_trovate": 0,
+    "flussi_web_totali": 0,
+    "beaconing_c2_rilevato": false,
+    "cv_massimo_candidati": 5.348,
+    "anomaly_score_beaconing": 0
+  },
+  "scores": {
+    "dos_score": 0.0,
+    "web_score": 0.0,
+    "scan_score": 0.9,
+    "beacon_score": 0.0
+  }
+}
+ -> [INFO]: Nessun ulteriore tool invocato e requisiti soddisfatti. Passo alla FASE REPORT FINALE (Verdetto: DOS_VOLUMETRIC).
+ -> [DEBUG TRANSITO]: Passaggio alla Fase 2 con stato=REPORT_FINALE
+
+==================== FASE FINALE: GENERAZIONE REPORT STRUTTURATO (STAGE 2) ====================
+ -> [VERDETTO VINCOLANTE STAGE 2 IDENTIFICATO]: SCAN_BRUTEFORCE
+ -> Generazione Report Strutturato Stage 2 (Tentativo 1/3)...
+ -> [REPORT STAGE 2 EMESSO CON SUCCESSO]: Verdetto = SCAN_BRUTEFORCE
+
+==================== INDAGINE CONCLUSA ====================
+MOTIVAZIONE: L'analisi evidenzia 19 porte uniche contattate con 14 in stato di probe, confermando un pattern di scansione, affiancato da 986 tentativi di connessione ripetuti verso la porta 21 da parte della sorgente 172.16.0.1, coerenti con un attacco di brute force.
+VERDETTO: SCAN_BRUTEFORCE
