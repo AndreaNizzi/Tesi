@@ -1,0 +1,358 @@
+[
+  {
+    "id": "TEST_CAT_B_001",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_002",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_A_003",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_A_004",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_C_005",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_B_006",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_E_007",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_C_008",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_009",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_A_010",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_A_011",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_D_012",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_B_013",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_014",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_D_015",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_B_016",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_C_017",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_C_018",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_B_019",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_020",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_B_021",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_022",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_A_023",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_C_024",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_025",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_D_026",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_C_027",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_C_028",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_029",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_D_030",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_C_031",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_032",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_E_033",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_D_034",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_D_035",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_D_036",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_C_037",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_D_038",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_A_039",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_D_040",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_A_041",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_D_042",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_B_043",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_044",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_D_045",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_D_046",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_E_047",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_E_048",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_D_049",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_E_050",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_D_051",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_C_052",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_053",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_C_054",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_C_055",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_A_056",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_C_057",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_C_058",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_D_059",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_B_060",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_C_061",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_B_062",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_B_063",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_064",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_B_065",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_E_066",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_E_067",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_C_068",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_069",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_B_070",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_E_071",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_E_072",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_E_073",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_C_074",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_075",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_A_076",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_B_077",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_E_078",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_D_079",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_C_080",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_081",
+    "verdetto_atteso": "BENIGN"
+  },
+  {
+    "id": "TEST_CAT_B_082",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_083",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_B_084",
+    "verdetto_atteso": "DOS_VOLUMETRIC"
+  },
+  {
+    "id": "TEST_CAT_D_085",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_D_086",
+    "verdetto_atteso": "BEACONING_C2"
+  },
+  {
+    "id": "TEST_CAT_A_087",
+    "verdetto_atteso": "WEB_ATTACK_EXPLOIT"
+  },
+  {
+    "id": "TEST_CAT_C_088",
+    "verdetto_atteso": "SCAN_BRUTEFORCE"
+  },
+  {
+    "id": "TEST_CAT_E_089",
+    "verdetto_atteso": "BENIGN"
+  }
+]
