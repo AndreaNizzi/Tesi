@@ -1,0 +1,2186 @@
+[
+  {
+    "ID": "TEST_CAT_B_001",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-07 16:00:00",
+    "end_time": "2017-07-07 16:15:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze confermano un attacco di saturazione volumetrica (DoS L7) verso il servizio HTTP sulla porta 80. Il tool 'get_rate_statistics' segnala uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un Web RPS di 34.44 e un burst PPS di 865.82. La metrica chiave 'concentrazione_flussi_per_destinazione_web' è estremamente elevata (15480.5 flussi per destinazione), con 30.961 flussi web totali concentrati su sole 2 destinazioni, superando ampiamente le soglie di saturazione (>= 1.000 richieste/flussi). Il tool 'compute_verdict_scores' assegna uno score di 0.95 a DOS_VOLUMETRIC. Sebbene sia presente un segnale di port scan (372 porte uniche, score SCAN_BRUTEFORCE 0.95), la massa schiacciante del traffico (oltre 30.000 flussi su porta 80) e l'allarme esplicito di saturazione HTTP rendono il DoS volumetrico la minaccia prevalente e dominante rispetto alla scansione secondaria. L'assenza di payload malevoli nel campione ridotto non declassa l'attacco, in quanto la saturazione dei socket/thread è confermata dai dati aggregati.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 47.901073899585754,
+      "tempo_mcp_totale_sec": 17.412555598653853,
+      "tempo_sql_reale_sec": 1.725028,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "DDoS": 29900,
+      "BENIGN": 91749
+    },
+    "Tempo Totale (s)": 190.2
+  },
+  {
+    "ID": "TEST_CAT_D_002",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 12:45:00",
+    "end_time": "2017-07-07 13:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2). Il tool 'detect_beaconing' ha identificato un flusso verso l'IP esterno 205.174.165.73 sulla porta 8080 con un Anomaly Score di 100 e il tag 'CONFIRMED_BEACONING_C2'. Il pattern mostra 18 connessioni con un intervallo medio di 48.5 secondi e un coefficiente di variazione (CV) di 0.535, indicando una cadenza periodica regolare tipica dei beaconing. Inoltre, 'compute_verdict_scores' assegna uno score di 0.95 a BEACONING_C2, il valore più alto tra tutte le categorie, mentre lo score per DOS_VOLUMETRIC è 0.0. Sebbene 'get_rate_statistics' segnali un'anomalia di burst PPS, la concentrazione di flussi web per destinazione è bassa (3.73) e non vi sono evidenze di saturazione massiva o exploit L7 (score WEB_ATTACK_EXPLOIT 0.0, 'sospetto_web_bruteforce' false). La presenza di un solo canale C2 attivo è sufficiente a compromettere la sicurezza dell'host, rendendo il verdetto BEACONING_C2 prevalente rispetto al traffico di fondo.\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.346826700959355,
+      "tempo_mcp_totale_sec": 0.6217705002054572,
+      "tempo_sql_reale_sec": 0.068348,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 274,
+      "Bot": 5
+    },
+    "Tempo Totale (s)": 203.8
+  },
+  {
+    "ID": "TEST_CAT_A_003",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 09:30:00",
+    "end_time": "2017-07-06 09:45:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "FP_MISMATCH_DOS_VOLUMETRIC",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"CORREZIONE RISPETTO ALLO STAGE 1: Le evidenze oggettive confermano un attacco DoS volumetrico L7 (Slowloris/HTTP Flood) che supera le soglie minime per la classificazione DOS_VOLUMETRIC, invalidando il verdetto 'BENIGN' dello Stage 1. I tool riportano: 1) 'get_rate_statistics' segnala 'ANOMALIA_RILEVATA' con 524 flussi web totali e una concentrazione di 262.0 flussi per destinazione web, indicando un accumulo massivo su un singolo target; 2) 'get_flow_features' conferma 17 flussi con impronta Slowloris/Slow HTTP DoS; 3) 'search_http_l7_anomalies' rileva 'sospetto_web_bruteforce = true' con 522 tentativi da un singolo IP, ma con 'login_endpoint_targeted = false' e 0 anomalie L7 specifiche (come SQLi/XSS), escludendo WEB_ATTACK_EXPLOIT come categoria primaria a favore di saturazione applicativa; 4) Il volume di 524 flussi supera la soglia di 500 flussi richiesta per la classificazione DOS_VOLUMETRIC in presenza di allarmi di saturazione e impronte Slowloris. L'assenza di payload malevoli nel campione ridotto (entropia 0.0) non neutralizza il segnale di saturazione di socket/thread tipico dei DoS L7 di grande volume.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": true,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 40.87693819962442,
+      "tempo_mcp_totale_sec": 4.860670999623835,
+      "tempo_sql_reale_sec": 0.33330099999999996,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Web Attack â€“ Brute Force": 141,
+      "BENIGN": 1168
+    },
+    "Tempo Totale (s)": 173.28
+  },
+  {
+    "ID": "TEST_CAT_A_004",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 10:30:00",
+    "end_time": "2017-07-06 10:45:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Confermo il verdetto di Stage 1. L'analisi delle evidenze oggettive esclude la presenza di minacce attive. Sebbene 'search_http_l7_anomalies' abbia impostato 'sospetto_web_bruteforce' a true, questo è stato smentito da 'compute_verdict_scores' (score WEB_ATTACK_EXPLOIT 0.40, ben al di sotto della soglia di 0.80) e dalla nota esplicita che indica un possibile falso positivo dell'euristica di conteggio. Le metriche di 'get_rate_statistics' mostrano volumi nella norma (RPS 0.21, PPS 6.56) e nessun allarme di saturazione o anomalia di flood. L'ispezione dei payload HTTP ('inspect_http_requests') rivela un'entropia pari a 0.0 e traffico diretto verso un hostname specifico (205.174.165.68) con pattern coerente con browsing o servizi legittimi, privo di signature malevole (SQLi, XSS, ecc.). Inoltre, 'get_host_port_distribution' non rileva port scan o brute force L4, e 'detect_beaconing' non identifica pattern C2. L'assenza di contro-evidenze specifiche per un attacco, unita alla bassa intensità del traffico e alla natura non malevola dei payload ispezionati, giustifica la classificazione come traffico benigno.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 37.31432530051097,
+      "tempo_mcp_totale_sec": 1.441422300413251,
+      "tempo_sql_reale_sec": 0.094358,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 522,
+      "Web Attack â€“ XSS": 49,
+      "Web Attack â€“ Sql Injection": 6
+    },
+    "Tempo Totale (s)": 163.31
+  },
+  {
+    "ID": "TEST_CAT_C_005",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 09:30:00",
+    "end_time": "2017-07-04 09:45:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4. Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con target specifico sulla porta 21 (FTP), mentre 'search_connection_attempts' rileva 975 tentativi di connessione da 172.16.0.1 verso 192.168.10.50 sulla porta 21, classificandoli esplicitamente come 'SOSPETTO_BRUTEFORCE'. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, coerente con il pattern di tentativi ripetuti su una porta di gestione. L'assenza di traffico HTTP/L7 ('flussi_web_esaminati: 0') e la natura TCP/FTP dei flussi escludono categorie come WEB_ATTACK_EXPLOIT o DOS_VOLUMETRIC (che richiederebbero saturazione di banda o volumi massivi di richieste web, non presenti qui con PPS aggregati di 30.49). Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 35.121026900131255,
+      "tempo_mcp_totale_sec": 5.166393800172955,
+      "tempo_sql_reale_sec": 1.240977,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "FTP-Patator": 598,
+      "BENIGN": 1726
+    },
+    "Tempo Totale (s)": 168.43
+  },
+  {
+    "ID": "TEST_CAT_B_006",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-05 11:15:00",
+    "end_time": "2017-07-05 11:30:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Le evidenze oggettive confermano il verdetto di Stage 1. Il traffico è riconducibile a una sessione VPN legittima (FortiClient) da un singolo host sorgente (192.168.10.51) verso la porta 443. Sebbene 'search_http_l7_anomalies' segnali 'sospetto_web_bruteforce = true', questo è un falso positivo generato dal conteggio dei flussi (198) su un'unica destinazione, come confermato dalle note di 'compute_verdict_scores' che indicano l'assenza di endpoint di login mirati e di anomalie L7 reali. Il volume di traffico (11.86 pps medi, 198 flussi totali) è ben al di sotto delle soglie critiche per un attacco DoS volumetrico (>= 1000 richieste o RPS > 10) e non presenta caratteristiche di saturazione. La presenza del tag 'INTERNAL_LAN_KEEPALIVE' e l'identificazione dell'applicazione come 'TLS.FortiClient' validano la natura legittima del traffico, escludendo minacce di tipo DoS, Brute Force o C2.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 33.163358599413186,
+      "tempo_mcp_totale_sec": 2.314696800429374,
+      "tempo_sql_reale_sec": 0.126948,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 3631,
+      "DoS GoldenEye": 1159
+    },
+    "Tempo Totale (s)": 144.47
+  },
+  {
+    "ID": "TEST_CAT_E_007",
+    "ip_target": "192.168.10.12",
+    "start_time": "2017-07-05 16:45:00",
+    "end_time": "2017-07-05 17:00:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Il traffico dell'host 192.168.10.12 nella finestra 16:45-17:00 del 05/07/2017 mostra un profilo di navigazione web e risoluzione DNS del tutto ordinario. I 246 flussi totali si compongono di 120 query DNS verso il resolver interno 192.168.10.3, 92 connessioni TLS verso 47 destinazioni web distinte (domini legittimi come cdn.ek.aero, www.google.si, www.emirates.com) e 28 richieste HTTP verso 8 host, con volumi e tassi di trasferimento nella norma (PPS aggregati 8.0, burst 9.9). L'ispezione L7 su 120 flussi web non ha rilevato alcuna anomalia: nessun payload malevolo, nessun endpoint di login targettizzato, nessun web brute force. Il tool di beaconing non ha identificato alcuna cadenza periodica verso host esterni. La ricerca di tentativi di connessione ha restituito stato NORMALE con zero pattern sospetti. L'euristica compute_verdict_scores ha suggerito SCAN_BRUTEFORCE con score 0.85, ma questo è un falso positivo: le 7 porte distinte contattate (53, 443, 80, 21, 22, 17065) riflettono semplicemente un mix di servizi legittimi usati dall'host, non uno sweep strutturato. In particolare, le porte di gestione 21 e 22 hanno solo 2 flussi ciascuna verso una singola destinazione, ben al di sotto della soglia di 25 tentativi ripetuti richiesta per classificare un brute force, e il tool get_host_port_distribution conferma sospetto_portscan=false. Non sono presenti i requisiti minimi per alcuna categoria di attacco: nessun port scan con 15+ porte, nessun brute force con 25+ tentativi su porte di gestione, nessun beaconing C2, nessuna anomalia L7, nessun flood volumetrico. Tutte le evidenze grezze convergono su traffico legittimo di un host che naviga in web e risolve nomi DNS.\",\n  \"ip_target\": \"192.168.10.12\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.83297870028764,
+      "tempo_mcp_totale_sec": 1.2619930999353528,
+      "tempo_sql_reale_sec": 0.11187599999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 430
+    },
+    "Tempo Totale (s)": 106.14
+  },
+  {
+    "ID": "TEST_CAT_C_008",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 09:45:00",
+    "end_time": "2017-07-04 10:00:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4. Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con 975 flussi concentrati sulla porta di gestione 21 (FTP) verso l'host 192.168.10.50. Il tool 'search_connection_attempts' classifica esplicitamente il pattern come 'SOSPETTO_BRUTEFORCE' con 975 tentativi totali sulla stessa porta. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, il massimo tra le categorie. Non sono presenti indicatori di PortScan (porte_uniche_contattate = 1, sospetto_portscan = false) né di DoS volumetrico (stato rate statistics NORMALE, PPS bassi, nessun allarme di saturazione). L'assenza di traffico HTTP/L7 esclude WEB_ATTACK_EXPLOIT. Il verdetto dello Stage 1 è confermato dalla convergenza di tutti i tool di rilevamento anomalie.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 36.791580700781196,
+      "tempo_mcp_totale_sec": 3.7016946002840996,
+      "tempo_sql_reale_sec": 0.715249,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "FTP-Patator": 567,
+      "BENIGN": 1711
+    },
+    "Tempo Totale (s)": 147.19
+  },
+  {
+    "ID": "TEST_CAT_E_009",
+    "ip_target": "172.217.7.2",
+    "start_time": "2017-07-03 11:15:00",
+    "end_time": "2017-07-03 11:30:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi delle evidenze oggettive conferma il verdetto di Stage 1. Il traffico verso l'IP 172.217.7.2 è minimo (15 flussi totali, 0.49 PPS) e diretto esclusivamente alla porta 443 da tre sorgenti interne (192.168.10.25, 192.168.10.9, 192.168.10.5). I tool di rilevamento non hanno identificato alcuna minaccia: nessun port scan o brute force (0 porte uniche contattate, stato NORMALE), nessuna anomalia L7 o exploit web (0 anomalie su 15 flussi web esaminati, sospetto_web_bruteforce false), e nessun pattern di beaconing C2. Lo score euristico è 0.0 per tutte le categorie di attacco. Il traffico è compatibile con normali richieste HTTPS verso un servizio cloud pubblico, senza indizi di saturazione, scansione o compromissione.\",\n  \"ip_target\": \"172.217.7.2\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 48.822250900324434,
+      "tempo_mcp_totale_sec": 0.527597900480032,
+      "tempo_sql_reale_sec": 0.013291,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 39
+    },
+    "Tempo Totale (s)": 62.38
+  },
+  {
+    "ID": "TEST_CAT_A_010",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 09:15:00",
+    "end_time": "2017-07-06 09:30:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Il traffico è interamente diretto verso un'unica destinazione interna (192.168.10.50, porta 80) con volumi regolari (304 flussi, RPS 0.34, PPS 7.47) e nessun allarme di saturazione o burst anomalo in 'get_rate_statistics'. Sebbene 'search_http_l7_anomalies' segnali 'sospetto_web_bruteforce = true', questo è un falso positivo dell'euristica di conteggio: non vi è alcun endpoint di login mirato ('login_endpoint_targeted = false'), nessuna anomalia L7 reale (0 anomalie trovate), e lo score euristico per WEB_ATTACK_EXPLOIT è basso (0.40). L'ispezione dei payload mostra entropia 0.0 e traffico HTTP coerente con browsing o download legittimi verso un host interno. Non sono presenti pattern di scanning L4, beaconing C2 o volumi massivi compatibili con DoS. Il verdetto Stage 1 di BENIGN è confermato dall'assenza di contro-evidenze malevole concrete.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 36.788325200323015,
+      "tempo_mcp_totale_sec": 4.15512580005452,
+      "tempo_sql_reale_sec": 0.272208,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Web Attack â€“ Brute Force": 89,
+      "BENIGN": 515
+    },
+    "Tempo Totale (s)": 165.95
+  },
+  {
+    "ID": "TEST_CAT_A_011",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 09:30:00",
+    "end_time": "2017-07-06 09:45:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "FP_MISMATCH_DOS_VOLUMETRIC",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"CORREZIONE RISPETTO ALLO STAGE 1: Le evidenze oggettive confermano un attacco DoS volumetrico L7 (Slowloris/HTTP Flood) che supera le soglie minime per la classificazione DOS_VOLUMETRIC, invalidando il verdetto 'BENIGN' dello Stage 1. I tool riportano 524 flussi totali diretti verso la porta 80, con 'get_rate_statistics' che segnala 'ANOMALIA_RILEVATA' e 'CRITICO' per il traffico web. La metrica 'concentrazione_flussi_per_destinazione_web' è di 262.0, indicando un accumulo massivo su un singolo target (192.168.10.50) e non un browsing ad alto fan-out. Inoltre, 'get_flow_features' conferma 17 flussi con impronta Slowloris e 'search_http_l7_anomalies' riporta 'sospetto_web_bruteforce = true' con 522 tentativi per IP. Sebbene il RPS aggregato sia basso (0.58), la combinazione di oltre 500 flussi, l'allarme di saturazione esplicito e la presenza di flussi Slowloris soddisfano i criteri tassativi per DOS_VOLUMETRIC (saturazione di socket/thread), rendendo inapplicabile la classificazione come WEB_ATTACK_EXPLOIT (che richiede volumi < 1.000 flussi in assenza di saturazione massiva) o BENIGN.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": true,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 36.742532099597156,
+      "tempo_mcp_totale_sec": 2.1690778993070126,
+      "tempo_sql_reale_sec": 0.295959,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Web Attack â€“ Brute Force": 141,
+      "BENIGN": 907
+    },
+    "Tempo Totale (s)": 198.52
+  },
+  {
+    "ID": "TEST_CAT_D_012",
+    "ip_target": "192.168.10.8",
+    "start_time": "2017-07-07 11:15:00",
+    "end_time": "2017-07-07 11:30:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'host 192.168.10.8 presenta un canale di comando e controllo (C2) confermato verso l'IP esterno 205.174.165.73 sulla porta 8080. Il tool detect_beaconing ha restituito il tag 'CONFIRMED_BEACONING_C2' con un Anomaly Score di 100, basato su 18 connessioni ripetute con un intervallo medio di 48.5 secondi e un coefficiente di variazione (CV) di 0.514, inferiore alla soglia di 0.6 che indica periodicità. La destinazione non ha hostname né provider cloud noto (resolve_host_info), caratteristica tipica di infrastrutture C2 non infrastrutturali. Sebbene compute_verdict_scores abbia segnalato un conflitto a pari merito tra WEB_ATTACK_EXPLOIT e BEACONING_C2 (entrambi con score 0.95), le evidenze grezze escludono l'attacco web: search_http_l7_anomalies riporta 'sospetto_web_bruteforce=false', 0 anomalie L7 e 0 target colpiti, mentre i 704 flussi web sono distribuiti su 256 destinazioni distinte (concentrazione 2.75), indicando traffico di browsing legittimo e non un attacco mirato. Il volume DNS elevato (1391 flussi) è diretto verso l'host interno 192.168.10.3 (LAN keepalive, CV 1.75) e non costituisce tunneling DNS verso un C2 esterno. Il burst PPS di 54.29 è insufficiente per classificare il traffico come DOS_VOLUMETRIC. In base alla regola di squilibrio, la presenza di anche un solo canale C2 attivo compromette l'host, rendendo il verdetto BEACONING_C2 prevalente rispetto al rumore di fondo benigno.\",\n  \"ip_target\": \"192.168.10.8\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 84.29921030020341,
+      "tempo_mcp_totale_sec": 4.6807457995601,
+      "tempo_sql_reale_sec": 0.13863,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 5,
+      "BENIGN": 3320
+    },
+    "Tempo Totale (s)": 114.15
+  },
+  {
+    "ID": "TEST_CAT_B_013",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 16:15:00",
+    "end_time": "2017-07-07 16:30:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di saturazione volumetrica L7 (DoS applicativo) verso il servizio HTTP sulla porta 80. Il tool 'get_rate_statistics' riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un burst PPS di 258.3 e un Web RPS di picco di 27.19. La metrica chiave 'concentrazione_flussi_per_destinazione_web' è pari a 951.5 flussi per destinazione, ben al di sopra della soglia di saturazione (>= 500 flussi o >= 1.000 richieste totali), con 1903 flussi web totali concentrati su sole 2 destinazioni distinte. Il tool 'compute_verdict_scores' assegna uno score di 0.95 a DOS_VOLUMETRIC, identificando esplicitamente un 'DoS L7' dovuto all'elevata saturazione HTTP. Sebbene 'search_http_l7_anomalies' indichi 'sospetto_web_bruteforce = true', il volume massivo (1882 tentativi verso un singolo IP) e la saturazione dei socket (evidenziata dall'alto numero di flussi e dal burst rate) soddisfano i criteri tassativi per DOS_VOLUMETRIC, che ha priorità in caso di volumi elevati e allarmi di saturazione. L'assenza di signature di exploit specifici nel campione ridotto non declassa l'evento, poiché la saturazione volumetrica è la minaccia primaria rilevata.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 37.43062529992312,
+      "tempo_mcp_totale_sec": 2.4699981007725,
+      "tempo_sql_reale_sec": 0.20682099999999998,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "DDoS": 3548,
+      "BENIGN": 6287
+    },
+    "Tempo Totale (s)": 165.27
+  },
+  {
+    "ID": "TEST_CAT_D_014",
+    "ip_target": "192.168.10.14",
+    "start_time": "2017-07-07 10:45:00",
+    "end_time": "2017-07-07 11:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2). Il tool 'detect_beaconing' ha segnalato 'beaconing_c2_rilevato: true' con una diagnosi di 'ALLERTA C2: Trovata cadenza periodica regolare'. Inoltre, 'compute_verdict_scores' assegna uno score di 0.95 alla categoria BEACONING_C2, il valore massimo tra tutte le categorie, suggerendo esplicitamente questo verdetto. L'analisi dei flussi mostra 35 connessioni verso l'IP esterno 205.174.165.73 sulla porta 8080, una porta non standard tipicamente associata a proxy o C2, con un intervallo medio di 23.2 secondi. Sebbene il coefficiente di variazione (CV) sia 1.372, la combinazione di persistenza, target esterno sconosciuto (infra_provider: Unknown) e porta sospetta, unita allo score euristico elevato, soddisfa i criteri per la classificazione come BEACONING_C2. Le altre categorie (DOS_VOLUMETRIC, WEB_ATTACK_EXPLOIT) hanno score 0.0, e il traffico web non mostra anomalie L7 o saturazione volumetrica significativa che giustifichino un'altra classificazione.\",\n  \"ip_target\": \"192.168.10.14\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 41.82982169976458,
+      "tempo_mcp_totale_sec": 1.2792186993174255,
+      "tempo_sql_reale_sec": 0.233035,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 18,
+      "BENIGN": 207
+    },
+    "Tempo Totale (s)": 193.77
+  },
+  {
+    "ID": "TEST_CAT_D_015",
+    "ip_target": "192.168.10.8",
+    "start_time": "2017-07-07 12:45:00",
+    "end_time": "2017-07-07 13:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2) attivo. Il tool 'detect_beaconing' ha identificato 18 connessioni ripetute dall'host 192.168.10.8 verso l'IP esterno 205.174.165.73 sulla porta 8080, con un intervallo medio di 48.5 secondi e un coefficiente di variazione (CV) di 0.514, inferiore alla soglia di 0.6 che indica una cadenza periodica regolare. L'Anomaly Score è pari a 100 e il tag 'CONFIRMED_BEACONING_C2' è presente, soddisfacendo pienamente la RULE #1. Inoltre, i flussi mostrano una firma comportamentale tipica del beaconing: durate quasi identiche (~998 ms) e volumi di byte costanti (374 byte), suggerendo payload di check-in standardizzati. L'IP di destinazione non è associato a nessun provider infrastrutturale noto (infra_provider: Unknown), il che rafforza l'ipotesi di infrastruttura C2 illegittima. Lo score euristico 'compute_verdict_scores' assegna 0.95 a BEACONING_C2, in allineamento con le evidenze. Le altre categorie sono escluse: il volume di traffico è basso (0.92 PPS, 40 flussi totali) e non vi sono allarmi di saturazione massiva che giustifichino DOS_VOLUMETRIC; la distribuzione delle porte mostra che le connessioni verso porte di gestione (22, 389, 53, 21, 445) sono rivolte a host interni della LAN (192.168.10.3, 192.168.10.50) e non costituiscono uno scan aggressivo verso l'esterno (sospetto_portscan: false, porte_uniche_contattate = 8 < soglia 15), escludendo SCAN_BRUTEFORCE; l'analisi L7 non rileva anomalie di exploit o brute force web (sospetto_web_bruteforce: false), escludendo WEB_ATTACK_EXPLOIT. La presenza di anche un solo canale C2 attivo è sufficiente a classificare l'host come compromesso, indipendentemente dal traffico benigno coesistente.\",\n  \"ip_target\": \"192.168.10.8\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.61113499989733,
+      "tempo_mcp_totale_sec": 0.41278190072625875,
+      "tempo_sql_reale_sec": 0.058434,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 62,
+      "Bot": 5
+    },
+    "Tempo Totale (s)": 112.68
+  },
+  {
+    "ID": "TEST_CAT_B_016",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-05 10:00:00",
+    "end_time": "2017-07-05 10:15:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di saturazione volumetrica (DoS L7) in ingresso verso l'host 172.16.0.1. Il tool 'get_rate_statistics' riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un burst PPS di 319.16 e, soprattutto, un accumulo massivo di 1766 flussi Web totali. La metrica 'concentrazione_flussi_per_destinazione_web' è pari a 883.0 flussi per destinazione, ben al di sopra della soglia di saturazione (>= 500 flussi o >= 1.000 richieste totali) definita per i DoS applicativi L7. Il tool 'compute_verdict_scores' assegna uno score di 0.95 a DOS_VOLUMETRIC, identificando esplicitamente un 'DoS L7' dovuto all'elevata saturazione HTTP concentrata. Sebbene 'search_http_l7_anomalies' indichi 'sospetto_web_bruteforce = true', il volume di traffico (1766 flussi) supera ampiamente la soglia di 1.000 richieste/flussi che, in presenza di un allarme critico di saturazione, impone la classificazione come DOS_VOLUMETRIC piuttosto che WEB_ATTACK_EXPLOIT. L'assenza di payload malevoli nel campione ridotto di 'inspect_http_requests' e l'entropia a 0.0 non costituiscono contro-evidenza valida per declassare a BENIGN, in quanto il campionamento non è esaustivo e la saturazione volumetrica è confermata dalle metriche aggregate. Il traffico verso la porta 443 (FortiClient) è stato correttamente escluso dall'analisi principale in quanto identificato come 'INTERNAL_LAN_KEEPALIVE' e non contribuisce alla saturazione della porta 80.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 34.40336389886215,
+      "tempo_mcp_totale_sec": 4.911048799753189,
+      "tempo_sql_reale_sec": 0.430386,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "DoS slowloris": 848,
+      "BENIGN": 2631
+    },
+    "Tempo Totale (s)": 183.68
+  },
+  {
+    "ID": "TEST_CAT_C_017",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 10:00:00",
+    "end_time": "2017-07-04 10:15:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4. Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con target specifico sulla porta 21 (FTP), mentre 'search_connection_attempts' identifica 986 tentativi di connessione da 172.16.0.1 verso 192.168.10.50:21, classificandoli esplicitamente come 'SOSPETTO_BRUTEFORCE'. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, il massimo tra le categorie. Sebbene il numero elevato di flussi (986) possa inizialmente suggerire un DoS volumetrico, la concentrazione esclusiva su una singola porta di gestione (FTP) e la natura ripetitiva dei tentativi di autenticazione (evidenziata dai flussi FTP_CONTROL con durata simile e basso volume di byte) sono caratteristiche distintive di un Brute Force, non di una saturazione di banda o socket. L'assenza di traffico HTTP/L7 e di anomalie Slowloris esclude le categorie WEB_ATTACK_EXPLOIT e DOS_VOLUMETRIC. Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 36.19769240031019,
+      "tempo_mcp_totale_sec": 4.895942300092429,
+      "tempo_sql_reale_sec": 1.2438449999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1651,
+      "FTP-Patator": 624
+    },
+    "Tempo Totale (s)": 156.03
+  },
+  {
+    "ID": "TEST_CAT_C_018",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 14:15:00",
+    "end_time": "2017-07-04 14:30:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4 verso la porta di gestione SSH (22). Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con 709 flussi diretti esclusivamente alla porta 22, mentre 'search_connection_attempts' classifica il pattern come 'SOSPETTO_BRUTEFORCE' con 709 tentativi di connessione verso l'IP 192.168.10.50. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, il massimo tra le categorie. Non sono presenti flussi web (flussi_web_totali = 0), quindi si esclude WEB_ATTACK_EXPLOIT e DOS_VOLUMETRIC di tipo L7. La regolarità temporale (CV 0.673) non è sufficiente a classificare il traffico come BEACONING_C2, poiché la natura della porta target (SSH) e l'elevato volume di tentativi ripetuti su un singolo servizio di autenticazione sono discriminanti primarie per SCAN_BRUTEFORCE. Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 34.871351200621575,
+      "tempo_mcp_totale_sec": 2.017263799905777,
+      "tempo_sql_reale_sec": 0.170616,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "SSH-Patator": 528,
+      "BENIGN": 889
+    },
+    "Tempo Totale (s)": 172.66
+  },
+  {
+    "ID": "TEST_CAT_B_019",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 16:00:00",
+    "end_time": "2017-07-07 16:15:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di saturazione volumetrica a livello applicativo (L7). L'host 172.16.0.1 ha generato 30.961 flussi HTTP concentrati su una singola destinazione (192.168.10.50) e una singola porta (80) nell'arco della finestra temporale di 15 minuti. Il tool get_rate_statistics ha segnalato lo stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un Web RPS sostenuto di 34.44 e un burst PPS di 858.87 per l'intera durata del burst (899 secondi), ben al di sopra delle soglie di saturazione. La concentrazione di flussi per destinazione web è di circa 15.480, un valore massivo che supera di gran lunga la soglia di 500 flussi aggregati richiesta per la classificazione tassativa come DOS_VOLUMETRIC. Sebbene il tool search_http_l7_anomalies abbia rilevato 'sospetto_web_bruteforce = true', il volume totale di richieste (30.961) supera ampiamente la soglia di 1.000 richieste che distingue un attacco a basso/medio volume (WEB_ATTACK_EXPLOIT) da un flood volumetrico. L'assenza di payload malevoli specifici (SQLi, XSS) e la natura ripetitiva e ad alto volume del traffico escludono WEB_ATTACK_EXPLOIT. Non sono presenti indizi di port scan (solo 1 porta contattata) o di beaconing C2 (l'unico candidato è un keepalive interno LAN), escludendo SCAN_BRUTEFORCE e BEACONING_C2. Il verdetto DOS_VOLUMETRIC è pertanto confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 69.96363390050828,
+      "tempo_mcp_totale_sec": 12.582216099835932,
+      "tempo_sql_reale_sec": 0.741172,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "DDoS": 29900,
+      "BENIGN": 91322
+    },
+    "Tempo Totale (s)": 107.52
+  },
+  {
+    "ID": "TEST_CAT_D_020",
+    "ip_target": "192.168.10.9",
+    "start_time": "2017-07-07 10:30:00",
+    "end_time": "2017-07-07 10:45:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano la presenza di un canale di comunicazione periodico verso un'infrastruttura esterna non riconducibile a servizi legittimi noti. Il tool detect_beaconing ha identificato 59 connessioni ripetute dall'host 192.168.10.9 verso l'IP esterno 205.174.165.73 sulla porta 8080, con un intervallo medio di circa 14.8 secondi. Sebbene il CV (1.343) non sia estremamente basso, la regola di valutazione per questa categoria stabilisce che comunicazioni ripetute verso porte non standard tipiche di proxy/C2 (come 8080) dirette verso IP esterni con provider sconosciuto (infra_provider: Unknown) debbano essere considerate segnale di malevolenza, anche in presenza di jitter intenzionale. Il compute_verdict_scores ha restituito uno score di 0.95 per BEACONING_C2, il valore più alto tra tutte le categorie, e ha esplicitamente segnalato 'Rilevato traffico di Beaconing C2/Jitter verso IP esterni'. Le altre ipotesi sono state scartate: DOS_VOLUMETRIC ha score 0.0 e i PPS aggregati (52.93) sono ben al di sotto delle soglie di saturazione; SCAN_BRUTEFORCE, pur avendo uno score di 0.85, non soddisfa i criteri di scansione aggressiva (solo 10 porte uniche contattate, sotto la soglia di 15, e stato NORMALE in search_connection_attempts); WEB_ATTACK_EXPLOIT ha score 0.4 e nessun'analisi L7 ha rilevato anomalie o tentativi di exploit. La presenza di anche un solo canale C2 attivo è sufficiente a classificare l'host come compromesso, indipendentemente dal traffico benigno di fondo (DNS interno e navigazione web).\",\n  \"ip_target\": \"192.168.10.9\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 67.67272289842367,
+      "tempo_mcp_totale_sec": 2.8224491998553276,
+      "tempo_sql_reale_sec": 0.301309,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 4234,
+      "Bot": 34
+    },
+    "Tempo Totale (s)": 131.24
+  },
+  {
+    "ID": "TEST_CAT_B_021",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-05 11:00:00",
+    "end_time": "2017-07-05 11:15:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Le evidenze oggettive confermano il verdetto di Stage 1. Il tool 'compute_verdict_scores' restituisce uno score di 0.0 per tutte le categorie malevole, suggerendo esplicitamente 'BENIGN'. L'analisi del traffico mostra un volume complessivo moderato (4.36 pps) e 198 flussi totali, prevalentemente diretti verso servizi di infrastruttura interna (DNS su porta 53, Kerberos, LDAP, NetBIOS) verso l'host 192.168.10.3, coerenti con il traffico di un Domain Controller o di un client in un ambiente di test (hostname 'testbed1.ca'). Sebbene 'get_rate_statistics' segnali un 'ANOMALIA_RILEVATA' con burst PPS di 4.93, questo valore è estremamente basso e non raggiunge le soglie critiche per un DoS volumetrico (che richiedono tipicamente PPS > 1000 o saturazione di socket). L'assenza di traffico HTTP/L7 ('flussi_web_totali': 0) esclude attacchi applicativi web. I tentativi di connessione verso porte di gestione (SSH, FTP) sono classificati come 'TRAFFICO_ORDINARIO_LAN' o 'SOSPETTO_PORTSCAN_LOW_VOLUME' con volumi trascurabili (pochi pacchetti), insufficienti a configurare un attacco di brute force o port scan aggressivo. Non sono presenti pattern di beaconing né anomalie L7. Pertanto, il traffico è riconducibile a attività di rete legittima in un ambiente interno.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 39.74975059973076,
+      "tempo_mcp_totale_sec": 3.33431150065735,
+      "tempo_sql_reale_sec": 0.417732,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "DoS Hulk": 3393,
+      "BENIGN": 11033,
+      "DoS GoldenEye": 2281
+    },
+    "Tempo Totale (s)": 199.87
+  },
+  {
+    "ID": "TEST_CAT_D_022",
+    "ip_target": "192.168.10.8",
+    "start_time": "2017-07-07 10:45:00",
+    "end_time": "2017-07-07 11:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano il verdetto dello Stage 1. Il tool 'detect_beaconing' ha identificato un canale di comunicazione verso l'IP esterno 205.174.165.73 sulla porta 8080, etichettato come 'SUSPECTED_BEACONING_JITTER' con un Anomaly Score di 54 e 51 connessioni totali. Sebbene il CV (1.114) non sia inferiore a 0.6, la presenza di un tag esplicito di sospetto beaconing su un'infrastruttura esterna (provider 'Unknown') e l'uso di una porta non standard (8080) tipica di proxy/C2 soddisfano i criteri di RULE #1B per la classificazione come BEACONING_C2. Inoltre, 'compute_verdict_scores' assegna uno score di 0.95 a BEACONING_C2, il valore più alto tra tutte le categorie, confermando la prevalenza di questo segnale rispetto ad altre anomalie minori (come lo score 0.85 per SCAN_BRUTEFORCE, che risulta inferiore e non supportato da evidenze di aggressività L4 significativa dato che 'sospetto_portscan' è false). L'assenza di contro-evidenze valide (il traffico non è riconducibile a servizi whitelistati o CDN noti per quel flusso specifico) impedisce il declassamento a BENIGN.\",\n  \"ip_target\": \"192.168.10.8\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.077240398619324,
+      "tempo_mcp_totale_sec": 1.5759347002021968,
+      "tempo_sql_reale_sec": 0.326228,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 30,
+      "BENIGN": 188
+    },
+    "Tempo Totale (s)": 203.43
+  },
+  {
+    "ID": "TEST_CAT_A_023",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 09:45:00",
+    "end_time": "2017-07-06 10:00:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "FP_MISMATCH_DOS_VOLUMETRIC",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze oggettive confermano un attacco di saturazione applicativa L7 (DoS volumetrico/Slowloris). Il tool get_rate_statistics riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un accumulo massivo di 530 flussi Web concentrati su un'unica destinazione (concentrazione_flussi_per_destinazione_web = 530.0), ben al di sopra della soglia di 500 flussi richiesta per la classificazione DOS_VOLUMETRIC. Inoltre, get_flow_features conferma la presenza di 2 flussi con impronta Slowloris/Slow HTTP DoS (FLAG_SLOWLORIS_SUSPECT: true), caratterizzati da connessioni HTTP attive per oltre 60 secondi a volume ridotto, un pattern tipico di saturazione dei socket del server. Sebbene search_http_l7_anomalies indichi 'sospetto_web_bruteforce: true', l'assenza di anomalie L7 esplicite (score WEB_ATTACK_EXPLOIT 0.4 < 0.80) e la presenza di un allarme esplicito di saturazione/flood in get_rate_statistics, unitamente al volume elevato di flussi (>= 500), impongono tassativamente la classificazione come DOS_VOLUMETRIC secondo le regole di disambiguazione. Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 38.1525430008769,
+      "tempo_mcp_totale_sec": 4.6897866004146636,
+      "tempo_sql_reale_sec": 0.297547,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1194,
+      "Web Attack â€“ Brute Force": 150
+    },
+    "Tempo Totale (s)": 105.31
+  },
+  {
+    "ID": "TEST_CAT_C_024",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 14:00:00",
+    "end_time": "2017-07-07 14:15:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"CORREZIONE RISPETTO ALLO STAGE 1: L'euristica 'compute_verdict_scores' assegna uno score di 0.85 a SCAN_BRUTEFORCE, superando la soglia di 0.80 per la classificazione tassativa. Le evidenze oggettive confermano un pattern di ricognizione: 'search_connection_attempts' rileva un pattern 'SOSPETTO_PORTSCAN_LOW_VOLUME' con 109 tentativi di connessione verso 5 porte distinte (21, 22, 80, 443, 444) su un unico host di destinazione (192.168.10.50). Sebbene 'get_host_port_distribution' indichi 'sospetto_portscan: false' (probabilmente a causa del basso volume di pacchetti per flusso), la molteplicità delle porte di destinazione contattate (5 porte, di cui 2 di gestione: 21 e 22) e la valutazione esplicita del tool di connessione supportano la classificazione come scan/bruteforce a basso volume. Il verdetto 'BENIGN' dello Stage 1 è infondato alla luce dello score euristico elevato e della presenza di un pattern di sweep multi-servizio. Non si applicano le condizioni per DOS_VOLUMETRIC (volume troppo basso, RPS 0.06) né per WEB_ATTACK_EXPLOIT (score 0.4, assenza di anomalie L7 specifiche).\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": true,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 38.22826600121334,
+      "tempo_mcp_totale_sec": 2.2950736987404525,
+      "tempo_sql_reale_sec": 0.352807,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "PortScan": 45,
+      "BENIGN": 84
+    },
+    "Tempo Totale (s)": 185.19
+  },
+  {
+    "ID": "TEST_CAT_E_025",
+    "ip_target": "23.60.139.27",
+    "start_time": "2017-07-06 16:30:00",
+    "end_time": "2017-07-06 16:45:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. Il traffico verso l'host 23.60.139.27 è riconducibile a normali richieste di client interni (192.168.10.x) verso un servizio legittimo di gestione certificati Symantec (*.symcd.com) ospitato su infrastruttura Akamai. Le evidenze oggettive mostrano volumi minimi (33 flussi totali, 0.68 PPS aggregati) tutti diretti alla porta 80, con stato 'NORMALE' in get_rate_statistics e nessun allarme di flood o saturazione. L'analisi L7 non ha rilevato anomalie, exploit o web brute force (sospetto_web_bruteforce = false). Non sono stati rilevati port scan (0 porte uniche oltre la 80), tentativi di brute force L4 o pattern di beaconing C2. Tutti gli score euristici sono pari a 0.0. Il traffico è coerente con attività di business ordinaria (OCSP/HTTP) e non presenta caratteristiche malevole.\",\n  \"ip_target\": \"23.60.139.27\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 67.65791569976136,
+      "tempo_mcp_totale_sec": 2.327575800009072,
+      "tempo_sql_reale_sec": 0.612782,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 58
+    },
+    "Tempo Totale (s)": 92.36
+  },
+  {
+    "ID": "TEST_CAT_D_026",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 10:15:00",
+    "end_time": "2017-07-07 10:30:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'analisi conferma la presenza di un canale di comando e controllo (C2) attivo dall'host 192.168.10.15 verso l'IP esterno 205.174.165.73 sulla porta 8080. Le evidenze oggettive mostrano 48 connessioni ripetute con un intervallo medio di 18.1 secondi e un coefficiente di variazione (CV) di 1.215, un pattern coerente con un impianto malware che utilizza jitter per eludere la rilevazione. L'IP di destinazione non è associato a nessun provider infrastrutturale noto (infra_provider: Unknown) e non ha hostname risolvibile, profilo tipico di un server C2. Il tool 'detect_beaconing' ha segnalato 'beaconing_c2_rilevato: true' e lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a BEACONING_C2, il più alto tra tutte le categorie. Il volume complessivo del traffico è basso (3.95 PPS, 206 flussi totali), il che esclude un attacco volumetrico DoS. L'analisi L7 non ha rilevato anomalie HTTP o brute force web, escludendo WEB_ATTACK_EXPLOIT. Le 9 porte uniche contattate sono sotto la soglia di 15 per port scan e i tentativi su porte di gestione (21, 22) sono solo 1-2 flussi, ben sotto la soglia per brute force L4, quindi SCAN_BRUTEFORCE è scartato nonostante lo score euristico di 0.85. La presenza di anche un solo canale C2 attivo è sufficiente a classificare l'host come compromesso, indipendentemente dal traffico benigno di fondo (DNS interno, web legittimo).\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 72.45079180039465,
+      "tempo_mcp_totale_sec": 2.5037127998657525,
+      "tempo_sql_reale_sec": 0.24036000000000002,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 312,
+      "Bot": 32
+    },
+    "Tempo Totale (s)": 117.91
+  },
+  {
+    "ID": "TEST_CAT_C_027",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 15:15:00",
+    "end_time": "2017-07-07 15:30:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un'attività di port scanning L4 strutturato da parte dell'host 172.16.0.1 verso il target 192.168.10.50. Il tool get_host_port_distribution riporta 1000 porte uniche contattate con 995 porte classificate come 'probe' (basso numero di pacchetti per flusso), attivando il flag 'sospetto_portscan = true'. La distribuzione mostra tentativi su porte di gestione e servizi standard (21, 22, 139, 445, 80, 2000, 5060) con un numero medio di pacchetti per flusso molto basso (tra 2 e 7), caratteristica tipica di una ricognizione di servizi e non di traffico applicativo legittimo o di saturazione. Il tool compute_verdict_scores assegna uno score di 0.95 a SCAN_BRUTEFORCE, in piena coerenza con i dati grezzi. Le altre categorie sono escluse: non vi sono evidenze di saturazione volumetrica per DOS_VOLUMETRIC (PPS aggregati moderati, assenza di flussi Slowloris confermati da get_flow_features), non vi sono anomalie L7 o exploit per WEB_ATTACK_EXPLOIT (0 anomalie su 97 flussi web esaminati, nessun endpoint di login colpito), e non vi è periodicità C2 per BEACONING_C2 (i candidati rilevati sono traffic interni LAN con tag INTERNAL_LAN_KEEPALIVE e CV elevato). Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 39.75022670067847,
+      "tempo_mcp_totale_sec": 6.604177099652588,
+      "tempo_sql_reale_sec": 0.716544,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "PortScan": 2365,
+      "BENIGN": 6772
+    },
+    "Tempo Totale (s)": 110.12
+  },
+  {
+    "ID": "TEST_CAT_C_028",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 14:00:00",
+    "end_time": "2017-07-04 14:15:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4. Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con 289 flussi diretti esclusivamente alla porta 22 (SSH) verso l'IP 192.168.10.50. Il tool 'search_connection_attempts' classifica esplicitamente il pattern come 'SOSPETTO_BRUTEFORCE' rilevando 289 tentativi di connessione sulla stessa porta. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, il massimo tra le categorie, con nota logica 'Pattern Brute Force L4 rilevato su porte di gestione (SSH/FTP/RDP)'. L'assenza di traffico web (0 flussi HTTP) e la regolarità dei flussi (durata ~19s, byte ~10KB) escludono pattern Slowloris o DoS volumetrico, mentre la concentrazione su una singola porta di gestione (22) con alto volume di tentativi esclude lo scenario di Port Scan (che richiederebbe molteplici porte di destinazione). Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 36.089187000412494,
+      "tempo_mcp_totale_sec": 2.67909670015797,
+      "tempo_sql_reale_sec": 0.351386,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "SSH-Patator": 210,
+      "BENIGN": 365
+    },
+    "Tempo Totale (s)": 166.37
+  },
+  {
+    "ID": "TEST_CAT_E_029",
+    "ip_target": "192.168.10.3",
+    "start_time": "2017-07-07 09:15:00",
+    "end_time": "2017-07-07 09:30:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. Il traffico verso 192.168.10.3 è dominato da query DNS (3289 flussi UDP verso porta 53) e presenta volumi di PPS aggregati (66.69) e burst (67.89) ampiamente inferiori alle soglie di saturazione volumetrica (>= 1000 PPS o allarmi critici di flood L4/L7). La distribuzione delle porte mostra solo 5 porte uniche contattate, ben al di sotto della soglia di 15 porte per un port scan strutturato, e nessun tentativo verso porte di gestione standard (21, 22, 3389). L'ispezione L7 ha rilevato un solo flusso web senza anomalie, exploit o tentativi di brute force. Il rilevamento beaconing non ha identificato canali C2 esterni, classificando i flussi periodici come INTERNAL_LAN_KEEPALIVE con CV elevato e score di anomalia nullo. Tutti i tentativi di connessione sono stati classificati dal tool MCP come traffico ordinario LAN. Il tool compute_verdict_scores restituisce 0.0 per tutte le categorie di minaccia. Il flag 'sospetto_bruteforce' sulla porta 53 è un falso positivo euristico, in quanto la porta 53 (DNS) non rientra nelle porte di autenticazione L4 previste per la classificazione SCAN_BRUTEFORCE. Nessuna delle categorie di attacco è supportata dalle evidenze oggettive.\",\n  \"ip_target\": \"192.168.10.3\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 81.57837120024487,
+      "tempo_mcp_totale_sec": 2.654925698880106,
+      "tempo_sql_reale_sec": 0.197276,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 5156
+    },
+    "Tempo Totale (s)": 108.59
+  },
+  {
+    "ID": "TEST_CAT_D_030",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 11:15:00",
+    "end_time": "2017-07-07 11:30:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2). Il tool 'detect_beaconing' ha identificato un flusso verso l'IP esterno 205.174.165.73 sulla porta 8080 con un Anomaly Score di 100 e il tag 'CONFIRMED_BEACONING_C2'. Il pattern mostra 18 connessioni con un intervallo medio di 48.5 secondi e un coefficiente di variazione (CV) di 0.535, indicando una cadenza periodica regolare tipica dei beaconing. Inoltre, la porta 8080 è una porta non standard spesso utilizzata da proxy o C2, e la persistenza di queste comunicazioni verso un IP esterno, anche a basso volume, è sufficiente a compromettere la sicurezza dell'host secondo le regole di valutazione. Il verdetto dello Stage 1 è confermato e non vi sono contro-evidenze valide che giustifichino un declassamento a BENIGN o altre categorie.\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.938318700529635,
+      "tempo_mcp_totale_sec": 1.8364133005961776,
+      "tempo_sql_reale_sec": 0.10425300000000001,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 6,
+      "BENIGN": 1119
+    },
+    "Tempo Totale (s)": 169.77
+  },
+  {
+    "ID": "TEST_CAT_C_031",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 14:30:00",
+    "end_time": "2017-07-04 14:45:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4 su porta di gestione. Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con target specifico sulla porta 22 (SSH), mentre 'search_connection_attempts' valuta il traffico come 'SOSPETTO_BRUTEFORCE' con 731 tentativi di connessione verso l'IP 192.168.10.50. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, il massimo tra le categorie. Sebbene 'get_rate_statistics' indichi un allarme 'CRITICO' per burst PPS, la natura del traffico è concentrata su un'unica porta di destinazione (22) con un pattern di tentativi ripetuti tipico di un attacco di forza bruta, non di una saturazione volumetrica L4/L7 generica (che richiederebbe flussi web o porte multiple). L'assenza di traffico HTTP/L7 ('search_http_l7_anomalies' = 0) e la presenza di flussi SSH con durata e byte coerenti con tentativi di autenticazione falliti o ripetuti supportano la classificazione come SCAN_BRUTEFORCE, in linea con il verdetto dello Stage 1.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 36.77215520013124,
+      "tempo_mcp_totale_sec": 3.2489074990153313,
+      "tempo_sql_reale_sec": 0.40153300000000003,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "SSH-Patator": 524,
+      "BENIGN": 940
+    },
+    "Tempo Totale (s)": 166.95
+  },
+  {
+    "ID": "TEST_CAT_E_032",
+    "ip_target": "192.168.10.19",
+    "start_time": "2017-07-05 14:00:00",
+    "end_time": "2017-07-05 14:15:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. L'host 192.168.10.19 ha generato 46 flussi in 15 minuti con volumi trascurabili (PPS aggregati 2.13, burst PPS 2.43), ben al di sotto delle soglie per attacchi volumetrici. Il traffico è distribuito su 8 porte eterogenee (53, 80, 443, 22, 21, 465, 30260, 44774) verso destinazioni LAN e esterne note (Google/Cloudflare), con un pattern coerente con attività di rete ordinaria (DNS, SSH interattivo, navigazione web). L'euristica ha segnalato SCAN_BRUTEFORCE con score 0.85, ma si tratta di un falso positivo: get_host_port_distribution riporta sospetto_portscan=false e sospetto_bruteforce=false, con solo 8 porte uniche (sotto la soglia di 15 per port scan). I 4 flussi SSH verso 192.168.10.50 mostrano 89 pacchetti medi per flusso, indicativi di sessioni interattive legittime e non di tentativi di Brute Force (che richiederebbero molti tentativi falliti con pochi pacchetti). I 2 flussi FTP sono ben sotto la soglia di Brute Force. search_connection_attempts non ha rilevato pattern sospetti, detect_beaconing non ha trovato cadenze periodiche, e search_http_l7_anomalies non ha rilevato anomalie L7 o Web Brute Force. L'ANOMALIA_RILEVATA di get_rate_statistics è un artefatto statistico dovuto al burst di 798 secondi su una finestra di 900 secondi con volumi minimi, non un indicatore di attacco. Tutte le priorità della cascata deterministica (Beaconing C2, Exploit Web, DoS Volumetrico, Scan/Brute Force) sono state verificate e risultate negative, confermando la natura benigna del traffico.\",\n  \"ip_target\": \"192.168.10.19\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 93.42141500115395,
+      "tempo_mcp_totale_sec": 3.9218965000472963,
+      "tempo_sql_reale_sec": 0.610492,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 151
+    },
+    "Tempo Totale (s)": 126.37
+  },
+  {
+    "ID": "TEST_CAT_E_033",
+    "ip_target": "138.108.7.20",
+    "start_time": "2017-07-05 14:30:00",
+    "end_time": "2017-07-05 14:45:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo univoco la natura benigna del traffico. L'host 138.108.7.20 ha generato solo 4 flussi TCP verso la porta 80 da un unico client interno (192.168.10.8) nella finestra temporale analizzata. I volumi sono trascurabili (PPS aggregati 0.06, byte totali minimi) e non vi sono allarmi di saturazione o burst critici. Gli hostname SNI risolti (secure-au.imrworldwide.com e secure-gl.imrworldwide.com) identificano il traffico come telemetria legittima verso un servizio di audience measurement noto. Tutti i tool di rilevamento minaccia (beaconing, exploit web, DoS, scan/bruteforce) restituiscono esiti negativi o score 0.0, senza alcuna anomalia L7 o L4 rilevata. Non sono presenti contro-evidenze che suggeriscano un'attività malevola nascosta.\",\n  \"ip_target\": \"138.108.7.20\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 35.7151613002643,
+      "tempo_mcp_totale_sec": 0.36523399874567986,
+      "tempo_sql_reale_sec": 0.03823,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 8
+    },
+    "Tempo Totale (s)": 100.97
+  },
+  {
+    "ID": "TEST_CAT_D_034",
+    "ip_target": "192.168.10.9",
+    "start_time": "2017-07-07 10:45:00",
+    "end_time": "2017-07-07 11:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"CORREZIONE RISPETTO ALLO STAGE 1: Le evidenze oggettive confermano la presenza di un impianto C2 attivo, che prevale sul segnale di port scan. Il tool 'detect_beaconing' ha identificato due flussi con il tag 'CONFIRMED_BEACONING_C2' e Anomaly Score 100: uno verso 69.168.97.166 (porta 443, hostname start.att.net) con CV 0.0 e intervallo medio di 9 secondi, e uno verso 54.208.26.241 (porta 443, hostname acds.prod.vidible.tv) con CV 0.524 e intervallo medio di 12.6 secondi. Inoltre, è presente traffico persistente verso la porta 8080 su IP esterno (205.174.165.73), compatibile con proxy/C2. Sebbene 'get_host_port_distribution' indichi un sospetto port scan (15 porte uniche) e 'compute_verdict_scores' mostri un conflitto a pari merito (0.95) tra SCAN_BRUTEFORCE e BEACONING_C2, la regola tassativa stabilisce che la presenza di anche un solo canale C2 confermato rende l'host compromesso, classificandolo come BEACONING_C2. Il traffico DNS elevato verso IP interno (192.168.10.3) è etichettato come INTERNAL_LAN_KEEPALIVE e non costituisce tunneling. Il verdetto di Stage 1 è corretto nel rilevare l'anomalia, ma la categoria specifica più accurata alla luce della conferma del beaconing è BEACONING_C2.\",\n  \"ip_target\": \"192.168.10.9\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": true,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 43.29612430045381,
+      "tempo_mcp_totale_sec": 2.5735184992663562,
+      "tempo_sql_reale_sec": 0.07067799999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 3244,
+      "Bot": 22
+    },
+    "Tempo Totale (s)": 231.22
+  },
+  {
+    "ID": "TEST_CAT_D_035",
+    "ip_target": "192.168.10.8",
+    "start_time": "2017-07-07 10:30:00",
+    "end_time": "2017-07-07 10:45:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano il verdetto dello Stage 1. Il tool 'detect_beaconing' ha segnalato 'beaconing_c2_rilevato: true' e 'compute_verdict_scores' ha assegnato uno score di 0.95 alla categoria BEACONING_C2, il valore massimo tra tutte le categorie. In particolare, è stato rilevato un flusso verso l'IP esterno 205.174.165.73 sulla porta 8080 con 54 connessioni totali e un intervallo medio di 9.4 secondi. Sebbene il CV (1.451) non sia estremamente basso, la combinazione di un numero elevato di connessioni ripetute verso una porta non standard (8080) tipicamente associata a proxy/C2 e la classificazione automatica del tool come 'ALLERTA C2' soddisfano i criteri per la classificazione come BEACONING_C2. La presenza di questo canale di comunicazione sospetto prevale sul traffico benigno coesistente (es. Dropbox, Cloudflare) e sulle altre anomalie minori (come il traffico DNS interno o le porte di gestione), in quanto la compromissione di un host è determinata dalla presenza di anche un solo canale C2 attivo. Non sono presenti contro-evidenze specifiche che dimostrino la natura di falso positivo di questo segnale.\",\n  \"ip_target\": \"192.168.10.8\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.947109199594706,
+      "tempo_mcp_totale_sec": 2.1936896005645394,
+      "tempo_sql_reale_sec": 0.480662,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 697,
+      "Bot": 35
+    },
+    "Tempo Totale (s)": 194.24
+  },
+  {
+    "ID": "TEST_CAT_D_036",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 10:00:00",
+    "end_time": "2017-07-07 10:15:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano la presenza di un canale di comando e controllo (C2) attivo, in linea con il verdetto dello Stage 1. Il tool 'detect_beaconing' ha identificato un flusso verso l'IP esterno 200.147.68.17 (porta 80) con un Anomaly Score di 72 (soglia >= 70) e il tag 'SUSPECTED_BEACONING_JITTER', indicando una cadenza periodica regolare compatibile con un beaconing. Inoltre, è stato rilevato traffico persistente verso l'IP 205.174.165.73 sulla porta non standard 8080 (29 connessioni), un pattern tipico di proxy/C2 che, secondo le regole di valutazione, costituisce un segnale di malevolenza anche in assenza di un score di beaconing elevato. Il tool 'compute_verdict_scores' assegna uno score di 0.95 a BEACONING_C2, il valore più alto tra tutte le categorie, suggerendo esplicitamente questa classificazione. Sebbene 'get_rate_statistics' segnali un'anomalia di rate (Burst PPS 68.65) e 'get_host_port_distribution' indichi un sospetto brute force sulla porta 53, la concentrazione dei flussi web è bassa (3.61 flussi/destinazione) e non vi sono evidenze di saturazione massiva L4/L7 che giustifichino un DOS_VOLUMETRIC. La presenza di anche un solo canale C2 attivo compromette l'host, rendendo il verdetto BEACONING_C2 prevalente rispetto al traffico di fondo o alle anomalie minori.\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 41.307798999361694,
+      "tempo_mcp_totale_sec": 2.2269057002849877,
+      "tempo_sql_reale_sec": 0.116282,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 2319,
+      "Bot": 20
+    },
+    "Tempo Totale (s)": 171.11
+  },
+  {
+    "ID": "TEST_CAT_C_037",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 09:15:00",
+    "end_time": "2017-07-04 09:30:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4 verso un servizio FTP. L'host 172.16.0.1 ha generato 690 flussi TCP diretti verso l'unico host 192.168.10.50 sulla porta 21 (FTP_CONTROL) nell'arco della finestra temporale di 15 minuti. Il tool get_host_port_distribution segnala esplicitamente 'sospetto_bruteforce: true' e identifica la porta 21 come target, mentre search_connection_attempts valuta i 690 tentativi ripetuti come 'SOSPETTO_BRUTEFORCE'. La natura dell'attacco è di tipo low-and-slow: i volumi sono volutamente bassi (PPS aggregati 21.73, burst 26.94) per non attivare le soglie di rate classiche, come confermato da get_rate_statistics che riporta stato 'NORMALE' per i volumi e assenza di allarmi flood o Slowloris. Non si tratta di un Port Scan, poiché è stata contattata una sola porta di destinazione (0 porte probe), ma di un tentativo ripetuto di autenticazione fallita su un servizio di gestione. L'euristica compute_verdict_scores assegna uno score di 0.95 a SCAN_BRUTEFORCE e 0.0 a tutte le altre categorie, in pieno accordo con le evidenze grezze. Le altre ipotesi sono scartate: non è DOS_VOLUMETRIC (assenza di saturazione massiva o flood), non è WEB_ATTACK_EXPLOIT (assenza totale di traffico HTTP/L7), non è BEACONING_C2 (il pattern non è periodico, CV=2.29, e la destinazione è interna LAN). Il verdetto di Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 39.74512560013682,
+      "tempo_mcp_totale_sec": 4.443239299580455,
+      "tempo_sql_reale_sec": 0.743501,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1396,
+      "FTP-Patator": 403
+    },
+    "Tempo Totale (s)": 62.72
+  },
+  {
+    "ID": "TEST_CAT_D_038",
+    "ip_target": "205.174.165.73",
+    "start_time": "2017-07-07 10:15:00",
+    "end_time": "2017-07-07 10:30:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano la presenza di un canale di comando e controllo (C2) verso l'IP esterno 205.174.165.73 sulla porta 8080. Il tool 'detect_beaconing' ha rilevato un pattern di beaconing con 97 connessioni ripetute e un intervallo medio di circa 19.6 secondi, segnalando esplicitamente 'beaconing_c2_rilevato: true'. Sebbene il coefficiente di variazione (CV) sia 1.334, indicando un jitter elevato, questo è coerente con le tecniche di evasione degli impianti C2 moderni che introducono variabilità temporale per eludere i rilevamenti basati su cadenze rigide. La destinazione è un IP esterno con provider sconosciuto ('Unknown'), non riconducibile a servizi legittimi noti o CDN, e la porta 8080 è tipicamente utilizzata per tunneling o proxy C2. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a BEACONING_C2, confermando la gravità dell'anomalia. Le altre categorie sono escluse: non vi sono volumi di traffico elevati o burst che indichino un DoS (PPS aggregati 1.67, stato NORMALE), non vi è port scanning (solo una porta target, 8080), e non vi sono evidenze di exploit web o brute force applicativo (login_endpoint_targeted false, anomalie L7 a zero). Il flag 'sospetto_web_bruteforce' presente in 'search_http_l7_anomalies' è da considerarsi un falso positivo derivante dal semplice conteggio di richieste ripetute verso un'unica porta, in assenza di tentativi di autenticazione falliti o payload malevoli. Pertanto, la presenza di un canale C2 attivo, anche a basso volume, giustifica la classificazione come BEACONING_C2.\",\n  \"ip_target\": \"205.174.165.73\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 21.50847139954567,
+      "tempo_mcp_totale_sec": 0.4908303008414805,
+      "tempo_sql_reale_sec": 0.053613,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 162,
+      "Bot": 56
+    },
+    "Tempo Totale (s)": 64.12
+  },
+  {
+    "ID": "TEST_CAT_A_039",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 09:45:00",
+    "end_time": "2017-07-06 10:00:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "FP_MISMATCH_DOS_VOLUMETRIC",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze oggettive confermano un attacco DoS applicativo L7 (Slowloris/Slow-Rate). Il tool get_rate_statistics segnala 'ANOMALIA_RILEVATA' con 530 flussi Web totali concentrati su un'unica destinazione (192.168.10.50:80), indicando una concentrazione di 530.0 flussi per destinazione. Il tool get_flow_features conferma esplicitamente 2 flussi con impronta Slowloris (FLAG_SLOWLORIS_SUSPECT: true), caratterizzati da durate superiori a 60 secondi a volume ridotto e intervalli di tempo (IAT) elevati, pattern tipico di saturazione delle risorse del server. Sebbene search_http_l7_anomalies indichi 'sospetto_web_bruteforce = true', l'assenza di anomalie L7 esplicite (score WEB_ATTACK_EXPLOIT 0.4 < 0.80), la mancata targeting di endpoint di login e il volume di 530 flussi (superiore alla soglia di 150-200 flussi per attacchi applicativi a basso volume) escludono la categoria WEB_ATTACK_EXPLOIT. Il pattern di saturazione con volumi elevati e allarme di rate giustifica tassativamente la classificazione DOS_VOLUMETRIC, confermando il verdetto dello Stage 1.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 23.091609600000083,
+      "tempo_mcp_totale_sec": 3.9510544994845986,
+      "tempo_sql_reale_sec": 0.12039,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 917,
+      "Web Attack â€“ Brute Force": 150
+    },
+    "Tempo Totale (s)": 67.26
+  },
+  {
+    "ID": "TEST_CAT_D_040",
+    "ip_target": "192.168.10.5",
+    "start_time": "2017-07-07 10:30:00",
+    "end_time": "2017-07-07 10:45:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'analisi conferma la presenza di un canale di comando e controllo (C2) attivo. L'host 192.168.10.5 stabilisce connessioni ripetute e persistenti verso l'IP esterno 205.174.165.73 sulla porta 8080, una porta non standard tipicamente associata a proxy o C2. Il tool detect_beaconing segnala 'beaconing_c2_rilevato: true' con 54 connessioni verso questo target, mostrando un intervallo medio di 16.8 secondi e un coefficiente di variazione (CV) di 1.414, pattern coerente con un impianto C2 che utilizza jitter per eludere il rilevamento. Il tool search_connection_attempts conferma 61 tentativi di connessione verso la stessa coppia IP:porta, e get_host_port_distribution evidenzia 61 flussi concentrati sulla porta 8080 verso una singola destinazione esterna. Il punteggio euristico BEACONING_C2 è 0.95, il più alto tra le categorie. Le evidenze escludono altre minacce: il volume di traffico è basso (PPS aggregati 17.61, web_rps 0.3) senza allarmi di saturazione massiva che giustifichino DOS_VOLUMETRIC; non sono presenti anomalie L7 o exploit web (search_http_l7_anomalies riporta 0 anomalie su 286 flussi web, escludendo WEB_ATTACK_EXPLOIT); il punteggio SCAN_BRUTEFORCE (0.85) è considerato un falso positivo poiché le porte uniche contattate sono 14 (sotto la soglia di 15) e non vi sono pattern aggressivi di scansione o brute force L4 confermati dai tool specifici. La presenza di un solo canale C2 attivo verso un IP esterno non infrastrutturale è sufficiente a classificare l'host come compromesso.\",\n  \"ip_target\": \"192.168.10.5\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 33.83757939981297,
+      "tempo_mcp_totale_sec": 2.834033500868827,
+      "tempo_sql_reale_sec": 0.201278,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1026,
+      "Bot": 44
+    },
+    "Tempo Totale (s)": 48.63
+  },
+  {
+    "ID": "TEST_CAT_A_041",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 10:15:00",
+    "end_time": "2017-07-06 10:30:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Il traffico dell'host 172.16.0.1 nella finestra 10:15-10:30 del 2017-07-06 è composto da 447 flussi HTTP unidirezionali verso 192.168.10.50:80, con PPS aggregati di 6.82, RPS web di 0.5 e nessun allarme di flood, burst o saturazione in get_rate_statistics. La distribuzione porte mostra una sola porta contattata (80), escludendo portscan L4 o bruteforce su servizi di gestione. L'ispezione L7 su tutti i 447 flussi non ha rilevato alcuna anomalia applicativa: nessun endpoint di login colpito, nessun payload compatibile con SQLi, XSS, Path Traversal o Command Injection, entropia del payload pari a 0.0 su tutti i campioni estratti e nessun traffico asimmetrico sospetto. Il flag 'sospetto_web_bruteforce' restituito da search_http_l7_anomalies è un falso positivo dell'euristica di conteggio, smentito da login_endpoint_targeted=false, target_colpiti_count=0 e dall'assenza totale di anomalie L7 reali. Il tool compute_verdict_scores conferma lo stato con score 0.0 per DOS_VOLUMETRIC, SCAN_BRUTEFORCE e BEACONING_C2, e un 0.4 non corroborato per WEB_ATTACK_EXPLOIT, con nota esplicita che il sospetto non è supportato da evidenze applicative. detect_beaconing non individua periodicità C2 (CV 0.9, tag INTERNAL_LAN_KEEPALIVE, anomaly_score 0). search_connection_attempts classifica il traffico come TRAFFICO_ORDINARIO. L'ipotesi iniziale di attacco applicativo è pertanto smentita dalle evidenze: il traffico è coerente con un normale utilizzo web a basso volume verso un singolo host interno.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 20.86784719955176,
+      "tempo_mcp_totale_sec": 1.3279759003780782,
+      "tempo_sql_reale_sec": 0.090607,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 877,
+      "Web Attack â€“ XSS": 99
+    },
+    "Tempo Totale (s)": 69.24
+  },
+  {
+    "ID": "TEST_CAT_D_042",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 10:30:00",
+    "end_time": "2017-07-07 10:45:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'analisi conferma la presenza di un canale di comando e controllo (C2) attivo dall'host 192.168.10.15 verso l'IP esterno 205.174.165.73 sulla porta 8080. Il tool detect_beaconing ha identificato 66 connessioni ripetute con un intervallo medio di 13.5 secondi e un coefficiente di variazione (CV) di 1.037, accompagnato dal tag 'SUSPECTED_BEACONING_JITTER', indicativo di un tentativo di elusione tramite jitter intenzionale. L'IP di destinazione non è associato a nessun provider infrastrutturale noto (infra_provider: Unknown) e la porta 8080 è tipicamente utilizzata da proxy e impianti C2. Il tool compute_verdict_scores assegna uno score di 0.95 per BEACONING_C2, il valore massimo tra le categorie valutate, corroborando l'evidenza grezza. Sebbene get_rate_statistics segnali un'anomalia di burst (31.63 PPS), il volume totale (1359 flussi, 31.35 PPS aggregati) è insufficiente per classificare l'evento come DOS_VOLUMETRIC, e l'assenza di anomalie L7 (0 su 566 flussi web esaminati) e di tentativi di exploit esclude WEB_ATTACK_EXPLOIT. La presenza di anche un solo canale C2 attivo è sufficiente a compromettere la sicurezza dell'host, rendendo il verdetto BEACONING_C2 prevalente rispetto al traffico benigno di fondo.\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 24.416065199766308,
+      "tempo_mcp_totale_sec": 1.7611540989018977,
+      "tempo_sql_reale_sec": 0.237261,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 43,
+      "BENIGN": 2056
+    },
+    "Tempo Totale (s)": 68.39
+  },
+  {
+    "ID": "TEST_CAT_B_043",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-05 10:45:00",
+    "end_time": "2017-07-05 11:00:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Il traffico verso 172.16.0.1 nella finestra 10:45-11:00 del 2017-07-05 mostra volumi e frequenze pienamente regolari: PPS aggregati 6.56, burst 25.89, 79 flussi totali tutti web, nessun allarme ANOMALIA_RILEVATA o CRITICO da get_rate_statistics, nessun flusso Slowloris, nessun port scan (1 sola porta contattata, porta 80), nessun brute force L4. Le 79 richieste HTTP sono distribuite su 2 destinazioni interne LAN (192.168.10.50:80 e 192.168.10.51:443 FortiClient) con byte_rate medi di circa 76 B/s e payload_entropy 0.0, senza payload malevoli, senza endpoint di login targettizzati e senza anomalie L7. Il flag sospetto_web_bruteforce di search_http_l7_anomalies non è corroborato da alcuna evidenza concreta (0 anomalie, login_endpoint_targeted false, target_colpiti 0, solo 47 tentativi totali) ed è esplicitamente segnalato dal tool come possibile falso positivo dell'euristica di conteggio. Nessun beaconing C2 esterno rilevato. Tutti gli score di compute_verdict_scores sono 0.0 tranne WEB_ATTACK_EXPLOIT a 0.4, che il tool stesso riduce per mancanza di corroborazione. L'ipotesi iniziale di DoS volumetrico è smentita dai dati: i volumi sono ampiamente sotto le soglie critiche e il traffico è riconducibile a normali sessioni applicative interne.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 21.52556839911267,
+      "tempo_mcp_totale_sec": 3.0791916996240616,
+      "tempo_sql_reale_sec": 0.083655,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 140308,
+      "DoS Hulk": 51153
+    },
+    "Tempo Totale (s)": 73.65
+  },
+  {
+    "ID": "TEST_CAT_D_044",
+    "ip_target": "205.174.165.73",
+    "start_time": "2017-07-07 10:45:00",
+    "end_time": "2017-07-07 11:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano un pattern di Beaconing C2 verso l'IP esterno 205.174.165.73. Il tool 'detect_beaconing' ha impostato 'beaconing_c2_rilevato = true' identificando 208 connessioni ripetute verso la porta 8080 (porta tipica di proxy/C2) con un intervallo medio di 20 secondi. Sebbene il coefficiente di variazione (CV) sia 1.347, la direttiva specifica che il jittering intenzionale usato dagli impianti C2 moderni può alzare il CV, e la presenza di connessioni ripetute verso porte proxy esterne è un segnale di malevolenza prioritario. Il tool 'compute_verdict_scores' assegna uno score di 0.95 a BEACONING_C2, superando la soglia di chiusura. Le altre categorie sono escluse: 'get_rate_statistics' mostra volumi bassi (3.43 PPS) e nessun allarme di flood (esclude DOS_VOLUMETRIC); 'get_host_port_distribution' non rileva scansioni di porte (esclude SCAN_BRUTEFORCE); 'search_http_l7_anomalies' riporta 0 anomalie L7 e nessun endpoint di login targettizzato, indicando che il flag 'sospetto_web_bruteforce' è un falso positivo euristico non corroborato da exploit o tentativi di autenticazione mirati (esclude WEB_ATTACK_EXPLOIT). La presenza di 5 host interni (192.168.10.x) che contattano ripetutamente la stessa destinazione su un'unica porta conferma la compromissione di più endpoint verso un singolo canale C2.\",\n  \"ip_target\": \"205.174.165.73\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 37.88098239945248,
+      "tempo_mcp_totale_sec": 2.045866100117564,
+      "tempo_sql_reale_sec": 0.087055,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 127,
+      "BENIGN": 330
+    },
+    "Tempo Totale (s)": 60.07
+  },
+  {
+    "ID": "TEST_CAT_D_045",
+    "ip_target": "192.168.10.8",
+    "start_time": "2017-07-07 11:45:00",
+    "end_time": "2017-07-07 12:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'analisi conferma la presenza di un canale di comando e controllo (C2) attivo dall'host 192.168.10.8 verso l'IP esterno 205.174.165.73 sulla porta 8080. Il tool 'detect_beaconing' ha restituito un Anomaly Score di 100 e il tag 'CONFIRMED_BEACONING_C2', identificando 18 connessioni con un intervallo medio di 48.5 secondi e un coefficiente di variazione (CV) di 0.514, indicativo di una periodicità regolare tipica dei beacon. Le evidenze di traffico mostrano flussi con volumi identici (374 byte) e durate quasi costanti (~998 ms), caratteristici di heartbeat di malware. La porta 8080, classificata come HTTP_Proxy, è una porta non standard spesso utilizzata da impianti C2 per eludere i controlli di sicurezza. Le altre categorie sono escluse dalle evidenze: 'get_rate_statistics' mostra PPS aggregati di 1.3 e Web RPS di 0.05, insufficienti per un DOS_VOLUMETRIC; 'search_http_l7_anomalies' non rileva anomalie L7 o web brute force, escludendo WEB_ATTACK_EXPLOIT; 'get_host_port_distribution' riporta solo 8 porte uniche contattate, ben al di sotto della soglia di 15 per un port scan, e nessun pattern di brute force L4 su porte di gestione, escludendo SCAN_BRUTEFORCE nonostante lo score euristico di 0.85 che risulta un falso positivo dovuto alla bassa densità di traffico su porte eterogenee. Il verdetto BEACONING_C2 è supportato dallo score euristico di 0.95 e dalle evidenze grezze.\",\n  \"ip_target\": \"192.168.10.8\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 35.12195209925994,
+      "tempo_mcp_totale_sec": 1.7629410000517964,
+      "tempo_sql_reale_sec": 0.027501,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 159,
+      "Bot": 5
+    },
+    "Tempo Totale (s)": 56.4
+  },
+  {
+    "ID": "TEST_CAT_D_046",
+    "ip_target": "192.168.10.8",
+    "start_time": "2017-07-07 12:15:00",
+    "end_time": "2017-07-07 12:30:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2) attivo dall'host 192.168.10.8. Il tool 'detect_beaconing' ha identificato 18 connessioni ripetute verso l'IP esterno 205.174.165.73 sulla porta 8080, con un intervallo medio di 48.5 secondi e un coefficiente di variazione (CV) di 0.514. Questo valore di CV, inferiore alla soglia di 0.60, indica una periodicità regolare tipica dei beaconing C2, risultando in un Anomaly Score di 100 e nel tag 'CONFIRMED_BEACONING_C2'. La porta 8080 è una porta non standard spesso utilizzata da proxy o C2, e la destinazione è un IP esterno con 'infra_provider: Unknown', rafforzando l'ipotesi di malevolenza. Il tool 'compute_verdict_scores' ha assegnato uno score di 0.95 a BEACONING_C2, il più alto tra tutte le categorie, suggerendo esplicitamente questo verdetto. Le altre categorie sono state scartate: DOS_VOLUMETRIC ha score 0.0 e volumi bassi (13.11 PPS, 276 flussi); SCAN_BRUTEFORCE ha score 0.85 ma le 12 porte contattate non raggiungono la soglia di 15 per port scan e non ci sono tentativi ripetuti su porte di gestione L4 sufficienti a configurare un brute force; WEB_ATTACK_EXPLOIT ha score 0.0 e 'search_http_l7_anomalies' non ha rilevato anomalie L7 né web brute force. Il traffico DNS verso 192.168.10.3 è stato etichettato come 'INTERNAL_LAN_KEEPALIVE' e non presenta caratteristiche di tunneling. La presenza di un solo canale C2 attivo è sufficiente a classificare l'host come compromesso, indipendentemente dal traffico benigno coesistente.\",\n  \"ip_target\": \"192.168.10.8\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 24.407935901079327,
+      "tempo_mcp_totale_sec": 0.6538404007442296,
+      "tempo_sql_reale_sec": 0.089424,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 459,
+      "Bot": 6
+    },
+    "Tempo Totale (s)": 62.48
+  },
+  {
+    "ID": "TEST_CAT_E_047",
+    "ip_target": "192.168.10.3",
+    "start_time": "2017-07-03 16:00:00",
+    "end_time": "2017-07-03 16:15:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi conferma il verdetto dello Stage 1. L'host 192.168.10.3 opera come server di directory/DNS interno, ricevendo traffico prevalentemente da host della stessa LAN (192.168.10.5, 192.168.10.12, ecc.). Il 98% dei flussi (2696 su 2742) è traffico DNS (porta 53) con volumi modesti (1.4 MB totali) e PPS aggregati di soli 11-16, ben al di sotto delle soglie per un attacco DoS volumetrico. L'allarme 'ANOMALIA_RILEVATA' di get_rate_statistics è un falso positivo generato dal conteggio assoluto dei flussi DNS, non da una saturazione reale: la concentrazione di flussi per destinazione web è 1.0 e non vi sono flussi web significativi (solo 2). Non sono presenti evidenze di BEACONING_C2 (CV 1.854, tag INTERNAL_LAN_KEEPALIVE), WEB_ATTACK_EXPLOIT (0 anomalie L7, nessun endpoint di login targettizzato) o SCAN_BRUTEFORCE (nessuna sorgente ha contattato >= 15 porte distinte; i tentativi su porta 3268 da 192.168.10.17 coinvolgono solo 4 porte, sotto la soglia di scan strutturato). Tutti gli score euristici sono 0.0.\",\n  \"ip_target\": \"192.168.10.3\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 45.67228120006621,
+      "tempo_mcp_totale_sec": 4.185531000141054,
+      "tempo_sql_reale_sec": 0.030087,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 6828
+    },
+    "Tempo Totale (s)": 67.97
+  },
+  {
+    "ID": "TEST_CAT_E_048",
+    "ip_target": "192.168.10.14",
+    "start_time": "2017-07-07 15:45:00",
+    "end_time": "2017-07-07 16:00:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Il traffico dell'host 192.168.10.14 è riconducibile a normale attività di un client web/office. Le evidenze oggettive confermano l'assenza di minacce: 192 flussi totali con PPS aggregati di 6.27 (volumi nella norma); 0 anomalie L7 su 118 flussi web esaminati con 'sospetto_web_bruteforce' false; 10 porte uniche contattate (443, 80, 8080, 53, 22, 21, 445) con 'sospetto_portscan' false, ben sotto la soglia di 15 porte per uno scan strutturato; nessun tentativo reiterato su porte di gestione (solo 4 flussi su 22 e 2 su 21); nessun pattern di beaconing rilevato; tutti i tentativi di connessione classificati come 'TRAFFICO_ORDINARIO'. I domini risolti (Google, Akamai, AWS Cloudfront, Mozilla) sono infrastruttura legittima. Lo score di 0.85 per SCAN_BRUTEFORCE restituito da 'compute_verdict_scores' è un falso positivo dell'euristica che ha interpretato la normale diversità di porte di un client web come uno sweep, ma è smentito dai dati grezzi (basso volume, assenza di fallimenti reiterati, porte eterogenee tipiche del browsing). L'allarme 'CRITICO' di 'get_rate_statistics' è anch'esso un falso positivo dato che i valori reali (burst_pps 6.81, web_rps 0.12) sono trascurabili e non indicano saturazione.\",\n  \"ip_target\": \"192.168.10.14\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 23.888314900919795,
+      "tempo_mcp_totale_sec": 5.098888200707734,
+      "tempo_sql_reale_sec": 0.733016,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 398
+    },
+    "Tempo Totale (s)": 84.61
+  },
+  {
+    "ID": "TEST_CAT_D_049",
+    "ip_target": "205.174.165.73",
+    "start_time": "2017-07-07 10:30:00",
+    "end_time": "2017-07-07 10:45:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano la presenza di un canale di comando e controllo (C2) attivo. Il tool detect_beaconing ha segnalato 'beaconing_c2_rilevato: true' con 290 connessioni ripetute verso l'IP esterno 205.174.165.73 sulla porta 8080, mostrando un intervallo medio di 13.8 secondi e un coefficiente di variazione (CV) di 1.347, pattern compatibile con l'uso di jitter per eludere la rilevazione. L'IP di destinazione non è associato a provider cloud noti o hostname risolti, e la porta 8080 è tipicamente utilizzata da proxy o impianti C2. Lo score euristico per BEACONING_C2 è 0.95, mentre le altre categorie sono escluse: DOS_VOLUMETRIC è scartato per volumi bassi (PPS 5.3, 337 flussi) e assenza di allarmi di saturazione; WEB_ATTACK_EXPLOIT è scartato perché il flag 'sospetto_web_bruforce' non è corroborato da anomalie L7 reali o tentativi su endpoint di login (0 anomalie su 337 flussi esaminati); SCAN_BRUTEFORCE è escluso per l'assenza di scansioni su porte di gestione. La presenza di anche un solo canale C2 attivo è sufficiente a classificare l'host come compromesso.\",\n  \"ip_target\": \"205.174.165.73\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 22.9330093995668,
+      "tempo_mcp_totale_sec": 0.47217650059610605,
+      "tempo_sql_reale_sec": 0.068101,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 192,
+      "BENIGN": 487
+    },
+    "Tempo Totale (s)": 68.6
+  },
+  {
+    "ID": "TEST_CAT_E_050",
+    "ip_target": "172.217.7.2",
+    "start_time": "2017-07-07 16:45:00",
+    "end_time": "2017-07-07 17:00:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi delle evidenze oggettive conferma il verdetto di Stage 1. Il traffico verso l'IP 172.217.7.2 (infrastruttura Google) è minimo e del tutto ordinario: sono stati rilevati solo 2 flussi TCP verso la porta 80, entrambi classificati come HTTP.Google, con volumi trascurabili (3.4 KB e 8 KB) e tassi di pacchetti inferiori a 0.32 pps. Le statistiche aggregate riportano 0.08 pps complessivi, nessun burst significativo e zero flussi web anomali. La distribuzione delle porte mostra 0 porte uniche contattate lato target e nessun pattern di port scan o brute force. L'analisi L7/HTTP su 2 flussi web esaminati non ha rilevato anomalie, tentativi di exploit o web brute force. Il rilevamento del beaconing non ha individuato alcuna cadenza periodica regolare. I tentativi di connessione mostrano una sola coppia IP (192.168.10.16 verso 172.217.7.2:80) con 2 tentativi, valutati come traffico ordinario. Il tool euristico compute_verdict_scores restituisce 0.0 su tutte le categorie di minaccia, in pieno accordo con le evidenze grezze: non vi sono indicatori di DoS volumetrico, scan/brute force, beaconing C2 o exploit web. Il verdetto BENIGN è confermato da tutte le fonti indipendenti.\",\n  \"ip_target\": \"172.217.7.2\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 21.957464599516243,
+      "tempo_mcp_totale_sec": 0.425244499463588,
+      "tempo_sql_reale_sec": 0.010201,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 4
+    },
+    "Tempo Totale (s)": 39.24
+  },
+  {
+    "ID": "TEST_CAT_D_051",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 10:45:00",
+    "end_time": "2017-07-07 11:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. L'host 192.168.10.15 presenta un canale di comando e controllo (C2) attivo verso l'IP esterno 205.174.165.73 sulla porta 8080. Il tool detect_beaconing segnala 'beaconing_c2_rilevato = true' e 'ALLERTA C2', identificando 55 connessioni con un intervallo medio di 16.2 secondi. Sebbene il CV sia 1.324 (indicativo di jitter), la persistenza e la ripetitività delle connessioni verso una porta non standard (8080) tipicamente associata a proxy/C2, unitamente allo score euristico di 0.95 per BEACONING_C2 in compute_verdict_scores, soddisfano i criteri per la classificazione come BEACONING_C2. Lo score SCAN_BRUTEFORCE (0.85) è considerato un falso positivo in quanto il numero di porte uniche contattate (7) è inferiore alla soglia di 15 e non vi sono evidenze di aggressione L4 in search_connection_attempts. Il traffico DNS verso 192.168.10.3 è etichettato come INTERNAL_LAN_KEEPALIVE e non costituisce tunneling. L'assenza di anomalie L7 e il basso volume aggregato escludono DOS_VOLUMETRIC e WEB_ATTACK_EXPLOIT.\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 34.94769290043041,
+      "tempo_mcp_totale_sec": 0.9566530003212392,
+      "tempo_sql_reale_sec": 0.037996,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 682,
+      "Bot": 32
+    },
+    "Tempo Totale (s)": 54.59
+  },
+  {
+    "ID": "TEST_CAT_C_052",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 15:00:00",
+    "end_time": "2017-07-04 15:15:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"L'analisi delle evidenze oggettive conferma in modo inequivocabile un attacco di Brute Force SSH. Il tool 'get_host_port_distribution' riporta 'sospetto_bruteforce = true' con 'porte_target_bruteforce = [22]' e 515 flussi concentrati sulla porta 22 verso un'unica destinazione. Il tool 'search_connection_attempts' valida questo pattern indicando 515 tentativi totali da 172.16.0.1 verso 192.168.10.50:22, classificati come 'SOSPETTO_BRUTEFORCE'. La porta 22 (SSH) è una porta di gestione L4 e il volume di tentativi ripetuti supera ampiamente le soglie di normalità, configurando un attacco di forza bruta. L'euristica 'compute_verdict_scores' assegna uno score di 0.95 a SCAN_BRUTEFORCE, in pieno accordo con le evidenze grezze. Le altre ipotesi sono scartate: DOS_VOLUMETRIC è escluso perché il PPS aggregato (34.37) è molto al di sotto delle soglie di saturazione volumetrica e non vi sono allarmi di flood critici (score 0.0); WEB_ATTACK_EXPLOIT è escluso perché i 114 flussi verso la porta 443 sono identificati come traffico TLS.FortiClient legittimo, con zero anomalie L7 e nessun endpoint di login targettizzato; BEACONING_C2 è escluso per l'assenza di pattern di beaconing regolari (CV elevato) e la presenza di tag di keepalive interno. Il verdetto è quindi SCAN_BRUTEFORCE.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 20.991583099588752,
+      "tempo_mcp_totale_sec": 1.719637100584805,
+      "tempo_sql_reale_sec": 0.07533999999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "SSH-Patator": 395,
+      "BENIGN": 968
+    },
+    "Tempo Totale (s)": 78.64
+  },
+  {
+    "ID": "TEST_CAT_E_053",
+    "ip_target": "192.168.10.16",
+    "start_time": "2017-07-05 15:15:00",
+    "end_time": "2017-07-05 15:30:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi delle evidenze oggettive conferma il verdetto di Stage 1. L'host 192.168.10.16 presenta un profilo di traffico coerente con un client browser standard: 355 flussi totali con PPS aggregati di 7.79 e burst PPS di 7.97, valori ampiamente inferiori alle soglie di saturazione volumetrica. I 138 flussi web sono distribuiti su 47 destinazioni distinte con una concentrazione di soli 2.94 flussi per destinazione, escludendo ipotesi di flood o DoS L7. Il tool search_http_l7_anomalies non ha rilevato anomalie, exploit o tentativi di brute force su endpoint di autenticazione. Il tool detect_beaconing non ha identificato pattern periodici C2. Riguardo all'euristica compute_verdict_scores che suggerisce SCAN_BRUTEFORCE con score 0.85, l'analisi dettagliata dimostra che si tratta di un falso positivo: le porte uniche contattate sono 12 (sotto la soglia tassativa di 15 per port scan) e i tentativi sulle porte di gestione (4 su porta 22, 3 su porta 21) sono insufficienti per configurare un brute force. Il traffico verso la porta 53 (DNS) e la porta 3268 (LDAP interno) è riconducibile a servizi di rete legittimi e non a scansioni malevole. I domini risolti (doubleclick, openx, googleadservices, detectportal.firefox.com) confermano la natura di traffico web legittimo. Nessuna delle categorie di minaccia raggiunge le soglie tassative di attivazione.\",\n  \"ip_target\": \"192.168.10.16\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 46.199323299340904,
+      "tempo_mcp_totale_sec": 4.632750700227916,
+      "tempo_sql_reale_sec": 0.192901,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 561
+    },
+    "Tempo Totale (s)": 70.83
+  },
+  {
+    "ID": "TEST_CAT_C_054",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-04 09:15:00",
+    "end_time": "2017-07-04 09:30:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di tipo Brute Force L4 e Port Scan. Il tool search_connection_attempts ha rilevato 690 tentativi di connessione ripetuti verso la porta 21 (FTP) da parte del sorgente 172.16.0.1, classificati esplicitamente come 'SOSPETTO_BRUTEFORCE'. Inoltre, get_host_port_distribution segnala un pattern di ricognizione con 24 porte uniche contattate e 20 porte probe a basso numero di pacchetti, con flag 'sospetto_portscan' e 'sospetto_bruteforce' impostati a true. Il punteggio euristico di compute_verdict_scores assegna uno score di 0.95 a SCAN_BRUTEFORCE, coerente con i dati grezzi. Le altre categorie sono escluse: il PPS aggregato (34.01) è ben al di sotto delle soglie di saturazione volumetrica per DOS_VOLUMETRIC; l'analisi L7 non ha rilevato anomalie HTTP o tentativi di login web (sospetto_web_bruforce false), escludendo WEB_ATTACK_EXPLOIT; e il rilevamento del beaconing non ha evidenziato periodicità regolare verso host esterni non infrastrutturali, escludendo BEACONING_C2.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 22.777924000751227,
+      "tempo_mcp_totale_sec": 4.477329599671066,
+      "tempo_sql_reale_sec": 0.613119,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 2220,
+      "FTP-Patator": 403
+    },
+    "Tempo Totale (s)": 63.78
+  },
+  {
+    "ID": "TEST_CAT_C_055",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 15:00:00",
+    "end_time": "2017-07-07 15:15:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"L'host 172.16.0.1 ha condotto un'attività di ricognizione di rete verso 192.168.10.50 contattando 1062 porte distinte con 11240 tentativi totali, di cui 1057 sono porte probe a un solo pacchetto medio, impronta tipica di uno scan SYN stealth. Il tool euristico assegna SCAN_BRUTEFORCE con score 0.95, valore confermato in modo indipendente dalla distribuzione delle porte e dal conteggio dei tentativi di connessione. Le altre categorie sono escluse: il volume di banda è basso (PPS aggregati 28.11, nessun allarme di saturazione, zero flussi Slowloris) e non concentrato su un singolo servizio, quindi non è un DoS volumetrico; non sono state rilevate anomalie L7/HTTP né targeting di endpoint di autenticazione, quindi non è un attacco web; i pattern periodici rilevati sono tutti verso un host di LAN interna con tag keepalive, non verso un C2 esterno, quindi non è beaconing. La prova primaria è la molteplicità delle porte di destinazione contattate, che giustifica il verdetto SCAN_BRUTEFORCE.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 22.78865519957617,
+      "tempo_mcp_totale_sec": 12.611891099717468,
+      "tempo_sql_reale_sec": 2.0293229999999998,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "PortScan": 3014,
+      "BENIGN": 8160
+    },
+    "Tempo Totale (s)": 69.71
+  },
+  {
+    "ID": "TEST_CAT_A_056",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 10:30:00",
+    "end_time": "2017-07-06 10:45:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Il traffico dell'host 172.16.0.1 nella finestra 10:30-10:45 del 06/07/2017 è composto da 190 flussi HTTP unidirezionali verso un unico host interno 192.168.10.50 sulla porta 80, con volumi e frequenze nella norma: PPS aggregati 2.65, web_rps 0.21, nessun burst, nessun flusso oltre soglia, nessun flusso Slowloris. La distribuzione porte mostra una sola porta contattata (80) su una sola destinazione, escludendo port scan e brute force L4. L'ispezione L7 su tutti i 190 flussi non ha rilevato alcuna anomalia applicativa (0 anomalie, nessun endpoint di login mirato, nessun payload malevolo, entropia 0.0 su tutti i campioni, traffico bidirezionale con pacchetti sia in avanti che in ritorno). Il flag 'sospetto_web_bruteforce' restituito dal tool L7 è un falso positivo dell'euristica di conteggio (190 richieste verso un solo IP) non corroborato da endpoint di login né da anomalie reali, come confermato anche dal tool di scoring che lo classifica come possibile falso positivo. Il rilevamento beaconing non ha trovato periodicità (CV 5.23, tag keepalive LAN interna). Tutti i tool obbligatori convergono su stato NORMALE e lo score euristico suggerisce BENIGN con tutte le altre categorie a 0.0. Non vi sono evidenze di attacco applicativo, volumetrico, di scansione o C2.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 22.35357329947874,
+      "tempo_mcp_totale_sec": 3.432289100252092,
+      "tempo_sql_reale_sec": 0.21551599999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 351,
+      "Web Attack â€“ XSS": 49,
+      "Web Attack â€“ Sql Injection": 6
+    },
+    "Tempo Totale (s)": 67.71
+  },
+  {
+    "ID": "TEST_CAT_C_057",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-04 09:30:00",
+    "end_time": "2017-07-04 09:45:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force a livello L4 combinato con attività di ricognizione (Port Scan) verso l'host 192.168.10.50. Il tool search_connection_attempts evidenzia un pattern critico: 975 tentativi ripetuti da 172.16.0.1 verso la porta 21 (FTP) del target, classificato esplicitamente come 'SOSPETTO_BRUTEFORCE'. Questa cifra supera di gran lunga la soglia minima di 25 tentativi ripetuti su porte di gestione (21, 22, 3389) richiesta per la classificazione. Parallelamente, get_host_port_distribution riporta 16 porte uniche contattate e 13 porte probe, con flag 'sospetto_portscan' e 'sospetto_bruteforce' entrambi impostati a true. L'aggregazione del traffico (get_aggregated_traffic_summary) mostra 984 flussi FTP_CONTROL concentrati sulla porta 21, confermando la natura ripetitiva e non volumetrica dell'attacco. Il tool euristico compute_verdict_scores assegna uno score di 0.95 a SCAN_BRUTEFORCE, mentre le altre categorie risultano a 0.0. Le alternative sono escluse dalle evidenze: WEB_ATTACK_EXPLOIT è scartato perché search_http_l7_anomalies non rileva anomalie L7 su 6 flussi web e 'sospetto_web_bruteforce' è false; DOS_VOLUMETRIC è scartato perché il PPS aggregato (36.31) è molto basso e non vi è saturazione di banda o flood L4/L7 massivo (flussi web totali solo 6); BEACONING_C2 è scartato perché detect_beaconing non rileva periodicità C2 (CV alto, tag INTERNAL_LAN_KEEPALIVE). Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 22.757714899722487,
+      "tempo_mcp_totale_sec": 5.584097699727863,
+      "tempo_sql_reale_sec": 1.361086,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "FTP-Patator": 598,
+      "BENIGN": 2119
+    },
+    "Tempo Totale (s)": 78.45
+  },
+  {
+    "ID": "TEST_CAT_C_058",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-04 10:00:00",
+    "end_time": "2017-07-04 10:15:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco Brute Force a livello L4. Il tool search_connection_attempts riporta 986 tentativi di connessione ripetuti da parte dell'IP sorgente 172.16.0.1 verso la porta 21 (FTP) del target 192.168.10.50, con valutazione esplicita 'SOSPETTO_BRUTEFORCE'. Questo pattern è corroborato da get_aggregated_traffic_summary, che mostra 993 flussi FTP_CONTROL concentrati sulla singola porta 21, e da get_host_port_distribution, che segnala 'sospetto_bruteforce = true'. Il volume di traffico (1197 flussi totali, PPS aggregato 37.46) è concentrato in tentativi ripetuti su un servizio di autenticazione (FTP) e non in una saturazione distribuita, escludendo la classificazione come DOS_VOLUMETRIC. L'assenza totale di traffico HTTP/L7 (search_http_l7_anomalies restituisce 0 flussi web) esclude WEB_ATTACK_EXPLOIT. Infine, l'assenza di periodicità regolare (CV alto) e la natura del traffico verso una porta di gestione escludono BEACONING_C2. Lo score euristico di 0.95 per SCAN_BRUTEFORCE è pienamente allineato con i dati grezzi.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 22.369572200346738,
+      "tempo_mcp_totale_sec": 2.076607699505985,
+      "tempo_sql_reale_sec": 0.34532599999999997,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 2040,
+      "FTP-Patator": 624
+    },
+    "Tempo Totale (s)": 65.65
+  },
+  {
+    "ID": "TEST_CAT_D_059",
+    "ip_target": "192.168.10.9",
+    "start_time": "2017-07-07 10:00:00",
+    "end_time": "2017-07-07 10:15:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'analisi conferma la presenza di un canale di comando e controllo (C2) attivo dall'host 192.168.10.9 verso l'IP esterno 205.174.165.73 sulla porta 8080. Il tool detect_beaconing ha identificato 20 connessioni ripetute con un intervallo medio di 33.7 secondi e un coefficiente di variazione (CV) di 1.177, etichettando il traffico come 'SUSPECTED_BEACONING_JITTER'. Sebbene l'Anomaly Score sia 51 (sotto la soglia di 70 per la conferma automatica via score), la RULE #1B del piano d'azione stabilisce che le comunicazioni ripetute verso porte non standard tipiche di proxy/C2 (come la 8080) dirette verso IP esterni devono essere considerate malevole anche con score basso, poiché il jitter intenzionale può abbassare artificialmente il CV. Inoltre, l'IP di destinazione non ha hostname né provider cloud noto (Unknown), rafforzando l'ipotesi di un nodo C2 non infrastrutturale. L'ipotesi di SCAN_BRUTEFORCE, pur avendo uno score euristico pari (0.95), è scartata perché le porte di gestione (22, 23, 3389) mostrano solo 1-2 flussi ciascuna, ben sotto le soglie di aggressività, e il traffico verso la porta 53 è riconducibile a DNS keepalive interno (tag INTERNAL_LAN_KEEPALIVE). L'assenza di anomalie L7 e i volumi di traffico irrilevanti (PPS 43.06, RPS 0.35) escludono DoS e Web Attack. La presenza di un singolo canale C2 attivo è sufficiente a classificare l'host come compromesso.\",\n  \"ip_target\": \"192.168.10.9\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 48.46544289914891,
+      "tempo_mcp_totale_sec": 5.247038000728935,
+      "tempo_sql_reale_sec": 0.066094,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1534,
+      "Bot": 12
+    },
+    "Tempo Totale (s)": 65.65
+  },
+  {
+    "ID": "TEST_CAT_B_060",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 15:45:00",
+    "end_time": "2017-07-07 16:00:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. Le evidenze oggettive indicano un attacco di saturazione volumetrica a livello L7 (DoS applicativo) da parte dell'host 172.16.0.1. Il tool get_rate_statistics riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', evidenziando un burst PPS di 2278.41 e un burst Web RPS di 59.34, con una durata del burst di 208 secondi. Il volume di traffico è massivo: 12.342 flussi Web totali in 15 minuti, concentrati su sole 2 destinazioni distinte, con una concentrazione di circa 6.171 flussi per destinazione. Questo supera ampiamente le soglie di saturazione (>= 1.000 richieste/flussi) e non è compatibile con traffico legittimo (es. browsing o trasferimento file), che non genererebbe tale densità di connessioni verso un singolo target. La distribuzione delle porte mostra che il 98% dei flussi (12.175) è diretto alla porta 80 di 192.168.10.50, escludendo port scan o brute force L4. Lo score euristico DOS_VOLUMETRIC è 0.95, il massimo possibile, e non vi sono contro-evidenze valide per declassare a BENIGN (assenza di whitelist, alta concentrazione su target singolo, allarme critico esplicito). Il pattern è coerente con un flood HTTP volumetrico (tipo Hulk/GoldenEye) che satura le risorse del server di destinazione.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 28.71535339904949,
+      "tempo_mcp_totale_sec": 5.004257899709046,
+      "tempo_sql_reale_sec": 0.340503,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 21549,
+      "DDoS": 6930
+    },
+    "Tempo Totale (s)": 50.49
+  },
+  {
+    "ID": "TEST_CAT_C_061",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-04 09:45:00",
+    "end_time": "2017-07-04 10:00:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile il verdetto di Stage 1. Il tool 'compute_verdict_scores' assegna uno score di 0.95 a SCAN_BRUTEFORCE, il massimo possibile, indicando un pattern di attacco L4 strutturato. In particolare, 'search_connection_attempts' rileva 975 tentativi ripetuti di connessione da 172.16.0.1 verso la porta 21 (FTP) dell'host target 192.168.10.50, classificati esplicitamente come 'SOSPETTO_BRUTEFORCE'. Inoltre, lo stesso tool evidenzia 210 tentativi da 192.168.10.50 verso 192.168.10.3 su 4 porte distinte (3268, 389, 443, 88), classificati come 'SOSPETTO_PORTSCAN_LOW_VOLUME'. La distribuzione delle porte ('get_host_port_distribution') mostra 11 porte uniche contattate con 9 porte probe e il flag 'sospetto_bruteforce' impostato a true. L'assenza di anomalie L7 (0 su 2 flussi web esaminati) e la bassa densità di PPS (37.04) escludono DOS_VOLUMETRIC e WEB_ATTACK_EXPLOIT. I valori di CV elevati (1.814 e 7.982) escludono BEACONING_C2. La combinazione di brute force su porta di gestione (FTP) e attività di scanning a basso volume giustifica pienamente la classificazione SCAN_BRUTEFORCE.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 52.22019529948011,
+      "tempo_mcp_totale_sec": 5.019936800003052,
+      "tempo_sql_reale_sec": 0.260411,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "FTP-Patator": 567,
+      "BENIGN": 2167
+    },
+    "Tempo Totale (s)": 80.9
+  },
+  {
+    "ID": "TEST_CAT_B_062",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-05 10:30:00",
+    "end_time": "2017-07-05 10:45:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di saturazione volumetrica (DoS L7) verso il servizio web. Il tool 'get_rate_statistics' riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un burst PPS di 1302.89 e un totale di 7257 flussi web. La metrica 'concentrazione_flussi_per_destinazione_web' è estremamente elevata (3628.5 flussi per destinazione), dimostrando che il traffico non è distribuito su molti target (come accadrebbe in un browsing intenso legittimo) ma è concentrato su un numero ristretto di destinazioni (2 distinte), compatibile con un flood applicativo. Il tool 'compute_verdict_scores' assegna uno score di 0.95 a DOS_VOLUMETRIC, mentre le altre categorie sono a 0.0. Sebbene 'search_http_l7_anomalies' indichi 'sospetto_web_bruteforce = true', il volume massivo di flussi (7257) e la saturazione dei rate statistiche prevalgono sulla classificazione di exploit mirati a basso volume, in linea con le regole tassative che classificano come DOS_VOLUMETRIC i flussi web massivi (>1000 richieste/flussi) associati ad allarmi di saturazione. Non sono presenti contro-evidenze valide per declassare a BENIGN (es. traffico VPN o CDN legittimo), dato che il volume e la concentrazione superano ampiamente le soglie di normalità.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 32.84282290004194,
+      "tempo_mcp_totale_sec": 6.635151899885386,
+      "tempo_sql_reale_sec": 0.48640100000000003,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 32938,
+      "DoS Slowhttptest": 25,
+      "DoS Hulk": 4683
+    },
+    "Tempo Totale (s)": 175.87
+  },
+  {
+    "ID": "TEST_CAT_B_063",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-07 15:45:00",
+    "end_time": "2017-07-07 16:00:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze confermano in modo inequivocabile un attacco di saturazione volumetrica a livello applicativo L7 (HTTP flood) verso l'host 192.168.10.50. Il tool get_rate_statistics riporta lo stato 'ANOMALIA_RILEVATA' con 12.552 flussi totali, di cui 12.342 concentrati su sole 2 destinazioni web (concentrazione di 6.171 flussi per destinazione), un burst PPS di 564,37 e un burst Web RPS di 59,34. Questa densità di traffico supera ampiamente le soglie per la classificazione DOS_VOLUMETRIC (>= 1.000 richieste/flussi web e allarme critico), indipendentemente dal fatto che i PPS medi aggregati non siano estremi. L'analisi dei flussi mostra che il 98% del traffico è diretto alla porta 80 (HTTP) da una singola sorgente (172.16.0.1), con 12.175 tentativi di connessione registrati. Sebbene compute_verdict_scores indichi un conflitto a pari merito con SCAN_BRUTEFORCE (score 0.95 per entrambi), la componente di port scan L4 (178 porte uniche, ma con volumi trascurabili: 120 flussi su porta 53, pochi su 389/3268) è marginalmente inferiore in impatto rispetto alla saturazione massiva del servizio web. L'assenza di payload malevoli (SQLi/XSS) e di endpoint di login mirati esclude WEB_ATTACK_EXPLOIT, mentre l'assenza di pattern temporali regolari esclude BEACONING_C2. Il verdetto DOS_VOLUMETRIC è quindi confermato come la categoria prevalente.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 36.60508080013096,
+      "tempo_mcp_totale_sec": 9.313131300732493,
+      "tempo_sql_reale_sec": 0.760938,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 21979,
+      "DDoS": 6930
+    },
+    "Tempo Totale (s)": 114.61
+  },
+  {
+    "ID": "TEST_CAT_D_064",
+    "ip_target": "205.174.165.73",
+    "start_time": "2017-07-07 10:00:00",
+    "end_time": "2017-07-07 10:15:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano il verdetto dello Stage 1. Il tool 'detect_beaconing' ha segnalato 'beaconing_c2_rilevato: true' con una diagnosi di 'ALLERTA C2: Trovata cadenza periodica regolare'. Inoltre, 'compute_verdict_scores' ha assegnato uno score di 0.95 alla categoria BEACONING_C2, indicando un'anomalia significativa. Il traffico mostra 48 connessioni verso l'IP 205.174.165.73 sulla porta 8080 (una porta non standard tipicamente associata a proxy o C2), proveniente da host interni (192.168.10.9 e 192.168.10.15). Nonostante il CV calcolato sia 1.308 (superiore alla soglia di 0.6 citata nella diagnosi preliminare), la combinazione del flag di rilevamento C2, l'alto score euristico e la persistenza di connessioni verso un endpoint esterno su porta non standard, in assenza di contro-evidenze di traffico legittimo (come domini noti o whitelist), giustifica la classificazione come BEACONING_C2. Non sono presenti segnali di DoS volumetrico, scan di porte o exploit web.\",\n  \"ip_target\": \"205.174.165.73\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 37.85433790041134,
+      "tempo_mcp_totale_sec": 1.0251304991543293,
+      "tempo_sql_reale_sec": 0.100066,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "Bot": 32,
+      "BENIGN": 68
+    },
+    "Tempo Totale (s)": 159.56
+  },
+  {
+    "ID": "TEST_CAT_B_065",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-05 10:45:00",
+    "end_time": "2017-07-05 11:00:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Confermo il verdetto di Stage 1. Le evidenze oggettive non supportano un attacco DoS volumetrico o un exploit web. 1) DOS_VOLUMETRIC: Sebbene 'get_rate_statistics' segnali 'ANOMALIA_RILEVATA', le metriche mostrano un PPS aggregato di 12.14 e un burst di 12.73, valori ben al di sotto delle soglie critiche per un flood L4 (>= 1000 pps). Il traffico web è composto da soli 32 flussi con un RPS di 0.04, insufficiente per saturare i socket (soglia tipica > 10 RPS o > 1000 richieste). La concentrazione di 32 flussi su 1 destinazione web è bassa e non indica un accumulo massivo. 2) WEB_ATTACK_EXPLOIT: Lo score euristico è 0.40 (< 0.80). Sebbene 'search_http_l7_anomalies' indichi 'sospetto_web_bruteforce = true', il volume è di soli 32 richieste totali (< 1.000) e non vi è targeting di endpoint di login ('login_endpoint_targeted = false'). L'assenza di anomalie L7 reali e il basso volume rendono improbabile un attacco applicativo mirato. 3) SCAN_BRUTEFORCE: 'get_host_port_distribution' segnala 'sospetto_bruteforce = true' sulla porta 53 (DNS), ma si tratta di 137 flussi UDP con pochi pacchetti (media 4.26), compatibile con traffico DNS legittimo o query ripetute, non con un brute force L4 classico su porte di gestione (22, 21, 3389). I tentativi di connessione verso altre porte sono classificati come 'SOSPETTO_PORTSCAN_LOW_VOLUME' con volumi trascurabili (6-7 tentativi). 4) BEACONING_C2: 'detect_beaconing' non rileva beaconing C2; il traffico SSH è etichettato come 'INTERNAL_LAN_KEEPALIVE'. In assenza di contro-evidenze specifiche per un falso positivo su un attacco reale e con tutti gli score malevoli sotto soglia critica, il traffico è classificato come BENIGN.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 39.68541970010847,
+      "tempo_mcp_totale_sec": 3.8654191996902227,
+      "tempo_sql_reale_sec": 0.265963,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 140541,
+      "DoS Hulk": 51153
+    },
+    "Tempo Totale (s)": 193.26
+  },
+  {
+    "ID": "TEST_CAT_E_066",
+    "ip_target": "192.168.10.16",
+    "start_time": "2017-07-05 15:00:00",
+    "end_time": "2017-07-05 15:15:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Confermo il verdetto dello Stage 1. L'analisi delle evidenze oggettive dimostra che il traffico generato da 192.168.10.16 è legittimo e distribuito, smentendo il falso positivo dell'euristica (SCAN_BRUTEFORCE 0.85). \\n\\n1. Assenza di DoS Volumetrico: I PPS aggregati sono 16.77 e il Web RPS è 0.24, valori ben inferiori alle soglie di saturazione (PPS > 1000 o RPS > 10). La concentrazione di flussi web per destinazione è di soli 3.67, indicando un browsing intenso ma distribuito su 58 destinazioni distinte, compatibile con traffico utente normale o CDN, e non con un attacco di saturazione su un singolo target.\\n2. Assenza di Web Attack/Exploit: Il tool 'search_http_l7_anomalies' ha esaminato 260 flussi web rilevando 0 anomalie, con 'sospetto_web_bruteforce' impostato a false e nessun endpoint di login mirato. Lo score euristico per WEB_ATTACK_EXPLOIT è basso (0.4) e non supportato da evidenze L7.\\n3. Assenza di Scan/Brute Force: Il flag 'sospetto_bruteforce' dell'euristica è un falso positivo generato dal conteggio di 238 flussi DNS verso il server LAN 192.168.10.3 (porta 53). La porta 53 non è una porta di gestione (come 22, 21, 3389) e il traffico DNS verso un server interno è classificato come 'TRAFFICO_ORDINARIO_LAN'. Le porte di gestione reali (22 e 21) mostrano un numero di flussi trascurabile (4 e 3 rispettivamente), ben al di sotto delle soglie di brute force. Inoltre, il numero di porte uniche contattate (9) è inferiore alla soglia di 15 per un port scan strutturato.\\n4. Assenza di Beaconing C2: Il tool 'detect_beaconing' non ha rilevato alcuna cadenza temporale regolare.\\n\\nTutte le evidenze convergono su un profilo di traffico ordinario, giustificando la classificazione come BENIGN.\",\n  \"ip_target\": \"192.168.10.16\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 92.89203249989077,
+      "tempo_mcp_totale_sec": 2.0306625002995133,
+      "tempo_sql_reale_sec": 0.159513,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 941
+    },
+    "Tempo Totale (s)": 125.92
+  },
+  {
+    "ID": "TEST_CAT_E_067",
+    "ip_target": "192.168.10.25",
+    "start_time": "2017-07-03 10:30:00",
+    "end_time": "2017-07-03 10:45:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "FP",
+    "Stato Investigazione": "INCOMPLETE",
+    "Report_MD": null,
+    "Telemetria": {
+      "tempo_llm_sec": 45.95813160017133,
+      "tempo_mcp_totale_sec": 5.353066700045019,
+      "tempo_sql_reale_sec": 0.399217,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "INCOMPLETE"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 4401
+    },
+    "Tempo Totale (s)": 249.24
+  },
+  {
+    "ID": "TEST_CAT_C_068",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 13:45:00",
+    "end_time": "2017-07-07 14:00:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"CORREZIONE RISPETTO ALLO STAGE 1: L'analisi delle evidenze oggettive smentisce il verdetto 'BENIGN' dello Stage 1. Il tool 'search_connection_attempts' ha rilevato esplicitamente un pattern 'SOSPETTO_PORTSCAN_LOW_VOLUME' con 178 tentativi di connessione verso 5 porte distinte (21, 22, 80, 443, 444) sul target 192.168.10.50. Il tool 'compute_verdict_scores' assegna uno score di 0.85 a SCAN_BRUTEFORCE, indicando un sweep multi-servizio a basso volume. Sebbene il tool 'get_host_port_distribution' indichi 'sospetto_portscan: false', la presenza di traffico su porte di gestione (SSH 22, FTP 21) e web (80, 443) con un numero significativo di flussi per ciascuna porta (31-48 flussi) e la conferma del tool euristico di connessione supportano la classificazione come SCAN_BRUTEFORCE. Il traffico non è riconducibile a un DoS volumetrico (PPS bassi, nessun allarme di saturazione massiva) né a un attacco web esplicito (nessuna anomalia L7, nessun endpoint di login targettizzato). La regolarità dei tempi di connessione (CV alto, tag INTERNAL_LAN_KEEPALIVE) non esclude la natura di scansione/brute-force a basso volume, specialmente in presenza di molteplici porte di destinazione contattate.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": true,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 37.38021110044792,
+      "tempo_mcp_totale_sec": 3.4379028007388115,
+      "tempo_sql_reale_sec": 0.338183,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "PortScan": 50,
+      "BENIGN": 130
+    },
+    "Tempo Totale (s)": 173.81
+  },
+  {
+    "ID": "TEST_CAT_E_069",
+    "ip_target": "192.168.10.17",
+    "start_time": "2017-07-07 16:30:00",
+    "end_time": "2017-07-07 16:45:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "FP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"CORREZIONE RISPETTO ALLO STAGE 1: L'analisi delle evidenze oggettive smentisce il verdetto 'BENIGN' dello Stage 1 e conferma la classificazione 'SCAN_BRUTEFORCE' suggerita dall'euristica (score 0.85). Il tool 'search_connection_attempts' ha identificato esplicitamente 2 pattern sospetti di tipo 'SOSPETTO_PORTSCAN_LOW_VOLUME' diretti verso gli host interni 192.168.10.3 e 192.168.10.50, con tentativi multipli su porte distinte (4 porte per il primo target, 3 per il secondo). Inoltre, 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' e 'sospetto_portscan: false' ma evidenzia un'attività anomala sulla porta 53 (103 flussi verso un'unica destinazione) e la presenza di connessioni verso porte di gestione (22, 21, 389, 3268) che, sebbene a basso volume, contribuiscono al profilo di scansione/brute force. Le priorità tassative indicano che la presenza di un port scan strutturato o tentativi reiterati di Brute Force (Priorità 4) prevale sul traffico ordinario. L'allarme 'CRITICO' di 'get_rate_statistics' è attribuito al burst di traffico DNS (porta 53) e non a un DoS volumetrico L4/L7, dato che i PPS aggregati sono bassi (4.61) e la concentrazione di flussi web per destinazione è molto bassa (1.92), escludendo DOS_VOLUMETRIC. L'assenza di exploit L7 (score 0.0) e di beaconing (score 0.0) esclude le altre categorie malevole. Pertanto, la categoria più coerente con le evidenze di scansione multi-porta e tentativi di connessione sospetti è SCAN_BRUTEFORCE.\",\n  \"ip_target\": \"192.168.10.17\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": true,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.94095280021429,
+      "tempo_mcp_totale_sec": 1.087793500162661,
+      "tempo_sql_reale_sec": 0.143778,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 277
+    },
+    "Tempo Totale (s)": 233.02
+  },
+  {
+    "ID": "TEST_CAT_B_070",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-05 10:15:00",
+    "end_time": "2017-07-05 10:30:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze confermano in modo inequivocabile un attacco di saturazione volumetrica L7 (HTTP Flood). Il tool get_rate_statistics riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un burst PPS di 652.51 sostenuto per 889 secondi. La metrica chiave è la concentrazione estrema del traffico: 3482 flussi web totali concentrati su sole 2 destinazioni, con un rapporto di 1741 flussi per destinazione, ben al di sopra della soglia di 500 flussi aggregati richiesta per la classificazione DOS_VOLUMETRIC. La distribuzione delle porte mostra 3190 flussi diretti alla porta 80 verso un singolo host (192.168.10.50), con un totale di 573.156 pacchetti. Sebbene search_http_l7_anomalies non abbia rilevato payload malevoli specifici (come SQLi o XSS) e abbia segnalato 'sospetto_web_bruforce: true', il volume massivo e la saturazione delle risorse (burst PPS elevato e alta densità di flussi) prevalgono sulla natura del payload, classificando l'evento come DoS volumetrico applicativo (simile a Hulk/GoldenEye) piuttosto che come exploit mirato. L'assenza di porte multiple esclude SCAN_BRUTEFORCE e l'assenza di pattern periodici verso IP esterni esclude BEACONING_C2. Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 61.046219900716096,
+      "tempo_mcp_totale_sec": 4.87788279959932,
+      "tempo_sql_reale_sec": 0.459244,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 4524,
+      "DoS Slowhttptest": 956
+    },
+    "Tempo Totale (s)": 91.4
+  },
+  {
+    "ID": "TEST_CAT_E_071",
+    "ip_target": "192.168.10.19",
+    "start_time": "2017-07-03 15:45:00",
+    "end_time": "2017-07-03 16:00:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Le evidenze oggettive confermano l'assenza di attività malevole. Il traffico verso la porta 53 (71 flussi) è identificato come DNS verso un resolver LAN interno (192.168.10.3) e classificato come traffico ordinario. Le connessioni verso le porte di gestione (SSH 22, FTP 21) sono in numero esiguo (6 e 2 flussi rispettivamente), ben al di sotto delle soglie per Brute Force, e non configurano un port scan strutturato (solo 8 porte uniche contattate, soglia 15). Gli strumenti di analisi L7 e beaconing non hanno rilevato anomalie, exploit o cadenze periodiche sospette. Lo score euristico di 0.85 per SCAN_BRUTEFORCE è un falso positivo generato dalla presenza di servizi legittimi multipli su porte diverse, smentito dall'analisi dettagliata dei flussi e dalla valutazione 'NORMALE' di search_connection_attempts.\",\n  \"ip_target\": \"192.168.10.19\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 68.96784190041944,
+      "tempo_mcp_totale_sec": 3.978122400585562,
+      "tempo_sql_reale_sec": 0.457586,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 229
+    },
+    "Tempo Totale (s)": 181.83
+  },
+  {
+    "ID": "TEST_CAT_E_072",
+    "ip_target": "72.21.91.29",
+    "start_time": "2017-07-04 09:15:00",
+    "end_time": "2017-07-04 09:30:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "FP",
+    "Stato Investigazione": "INCOMPLETE",
+    "Report_MD": null,
+    "Telemetria": {
+      "tempo_llm_sec": 37.204044700134546,
+      "tempo_mcp_totale_sec": 4.60615209909156,
+      "tempo_sql_reale_sec": 0.668683,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "INCOMPLETE"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 198
+    },
+    "Tempo Totale (s)": 169.05
+  },
+  {
+    "ID": "TEST_CAT_E_073",
+    "ip_target": "192.168.10.12",
+    "start_time": "2017-07-05 12:30:00",
+    "end_time": "2017-07-05 12:45:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. L'host 192.168.10.12 mostra un comportamento tipico di un client Windows in dominio (testbed1.ca), come evidenziato dai record SRV LDAP/Kerberos risolti. Il traffico è composto da 67 flussi DNS verso il domain controller (192.168.10.3, porta 53), lookup Kerberos (porta 88), autenticazione LDAP (porte 389 e 3268) e navigazione web verso 12 destinazioni esterne (porte 443 e 80). Lo score euristico SCAN_BRUTEFORCE (0.85) è un falso positivo: l'euristica ha reagito alla presenza di 6 porte eterogenee, ma il tool stesso segnala 'corroborato=False' e 'sospetto_portscan=false'. Le soglie tassative per SCAN_BRUTEFORCE (>= 15 porte per port scan o tentativi reiterati su porte di gestione come 22/3389) non sono soddisfatte. I volumi sono bassi (PPS 2.97), non ci sono anomalie L7, nessun beaconing e nessun allarme di saturazione DoS. Tutti i tool indicano traffico ordinario.\",\n  \"ip_target\": \"192.168.10.12\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.36669719964266,
+      "tempo_mcp_totale_sec": 1.882002199999988,
+      "tempo_sql_reale_sec": 0.05712299999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 243
+    },
+    "Tempo Totale (s)": 112.76
+  },
+  {
+    "ID": "TEST_CAT_C_074",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 10:15:00",
+    "end_time": "2017-07-04 10:30:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4. Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con 347 flussi diretti esclusivamente verso la porta 21 (FTP) del target 192.168.10.50. Il tool 'search_connection_attempts' valida questo pattern classificandolo come 'SOSPETTO_BRUTEFORCE' con 347 tentativi totali. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, il massimo tra le categorie, mentre le altre categorie (DOS_VOLUMETRIC, WEB_ATTACK_EXPLOIT, BEACONING_C2) risultano a 0.0. L'assenza di traffico HTTP (flussi_web_totali = 0) e la concentrazione su una singola porta di gestione (FTP) escludono un attacco volumetrico o un exploit web. La regolarità temporale osservata in alcuni flussi non è sufficiente a classificare il traffico come BEACONING_C2, poiché la natura della porta target (21) e l'alto volume di tentativi ripetuti su un'unica destinazione sono indicatori primari di Brute Force. Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 34.51436580112204,
+      "tempo_mcp_totale_sec": 1.0154639994725585,
+      "tempo_sql_reale_sec": 0.142706,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "FTP-Patator": 245,
+      "BENIGN": 570
+    },
+    "Tempo Totale (s)": 187.23
+  },
+  {
+    "ID": "TEST_CAT_E_075",
+    "ip_target": "172.217.7.2",
+    "start_time": "2017-07-05 13:15:00",
+    "end_time": "2017-07-05 13:30:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. Il traffico verso l'IP 172.217.7.2 (infrastruttura Google: doubleclick, googletagservices) è minimo e del tutto ordinario. I tool riportano: 10 flussi totali, 0.6 PPS aggregati, stato NORMALE nelle statistiche di rate; 0 porte uniche contattate e nessun sospetto di port scan o brute force; 5 connessioni verso porta 443 classificate come TRAFFICO_ORDINARIO; 0 anomalie L7/HTTP e nessun web brute force; nessuna cadenza periodica (beaconing) rilevata; nessun flusso Slowloris o anomalia temporale. Lo score euristico è 0.0 per tutte le categorie di minaccia. Nessuna delle priorità della cascata (Beaconing, Web Exploit, DoS, Scan/BruteForce) è soddisfatta. Il traffico è riconducibile a normali richieste verso endpoint Google, senza evidenze di attività malevola.\",\n  \"ip_target\": \"172.217.7.2\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 56.31625210074708,
+      "tempo_mcp_totale_sec": 0.7330927001312375,
+      "tempo_sql_reale_sec": 0.047852,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 24
+    },
+    "Tempo Totale (s)": 78.02
+  },
+  {
+    "ID": "TEST_CAT_A_076",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 10:15:00",
+    "end_time": "2017-07-06 10:30:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Conferma del verdetto Stage 1. L'analisi evidenzia un traffico HTTP massivo (447 flussi) da un singolo sorgente (172.16.0.1) verso la porta 80, che ha generato un allarme 'ANOMALIA_RILEVATA' in get_rate_statistics. Tuttavia, l'applicazione del criterio anti-false-positives per traffico web ad alto fan-out o browsing intenso è supportata da contro-evidenze specifiche: 1) 'search_http_l7_anomalies' riporta 0 anomalie L7 reali e 'login_endpoint_targeted' = false, smentendo l'ipotesi di Web Brute Force o Exploit nonostante il flag euristico 'sospetto_web_bruteorce' (spiegato come possibile falso positivo dal tool compute_verdict_scores per assenza di endpoint di login); 2) 'inspect_http_requests' mostra payload con entropia 0.0 e volumi di byte coerenti con download di contenuti legittimi (circa 250KB per flusso), non con payload malevoli o exploit; 3) 'get_flow_features' esclude pattern Slowloris o DoS L7 (0 flussi sospetti); 4) 'detect_beaconing' e 'get_host_port_distribution' non rilevano minacce C2 o port scan aggressivi. L'assenza di anomalie applicative, la natura dei payload e l'assenza di targeting di endpoint sensibili giustificano la classificazione come traffico legittimo ad alto volume, non come attacco.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 49.15990629978478,
+      "tempo_mcp_totale_sec": 2.3174487999640405,
+      "tempo_sql_reale_sec": 0.318248,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1102,
+      "Web Attack â€“ XSS": 99
+    },
+    "Tempo Totale (s)": 88.47
+  },
+  {
+    "ID": "TEST_CAT_B_077",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-07 16:15:00",
+    "end_time": "2017-07-07 16:30:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"Le evidenze confermano un attacco di saturazione volumetrica L7 (DoS applicativo) verso il servizio HTTP sulla porta 80. Il tool 'get_rate_statistics' riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', indicando un burst Web RPS di 27.19 e una concentrazione estrema di flussi: 1903 flussi web totali concentrati su sole 2 destinazioni distinte, con un rapporto di concentrazione di 951.5 flussi per destinazione. Questo supera ampiamente le soglie di saturazione (>= 500-1000 flussi verso lo stesso servizio) definite per la classificazione DOS_VOLUMETRIC, indipendentemente dai PPS aggregati moderati (35.11 pps). Il tool 'compute_verdict_scores' assegna uno score di 0.95 a DOS_VOLUMETRIC, identificando esplicitamente l'elevata saturazione HTTP come indicatore di DoS L7. Sebbene sia presente un segnale di port scan (score 0.95 anche per SCAN_BRUTEFORCE, con 32 porte uniche contattate), la massa schiacciante del traffico (1842 flussi su porta 80 rispetto a poche decine su altre porte) e l'allarme critico di saturazione web rendono il DoS volumetrico la minaccia prevalente e dominante. L'assenza di payload malevoli nel campione ridotto di 'inspect_http_requests' non autorizza il declassamento a BENIGN in presenza di un allarme critico di saturazione e di un volume massivo di connessioni, in conformità con le regole anti-false negative per i DoS L7.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 39.15224000066519,
+      "tempo_mcp_totale_sec": 3.6768851005472243,
+      "tempo_sql_reale_sec": 0.405989,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "DDoS": 3548,
+      "BENIGN": 6723
+    },
+    "Tempo Totale (s)": 174.92
+  },
+  {
+    "ID": "TEST_CAT_E_078",
+    "ip_target": "72.21.91.29",
+    "start_time": "2017-07-03 12:45:00",
+    "end_time": "2017-07-03 13:00:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. Il traffico verso 72.21.91.29 è composto da 30 flussi totali nella finestra di 15 minuti, tutti diretti alla porta 80 e classificati come HTTP.OCSP verso ocsp.digicert.com (infrastruttura Edgecast). Si tratta di traffico legittimo di verifica certificati OCSP proveniente da host interni (192.168.10.x). I volumi sono minimi (0.94 PPS aggregati), non vi sono porte multiple contattate (solo porta 80), nessun tentativo di connessione sospetto (max 6 tentativi per IP, tutti classificati TRAFFICO_ORDINARIO), nessuna anomalia L7/HTTP rilevata su 30 flussi esaminati, nessun pattern di beaconing o periodicità C2, nessun flusso Slowloris o DoS applicativo. Lo score euristico restituisce 0.0 su tutte le categorie di minaccia. Tutte le evidenze grezze confermano l'assenza totale di attività malevola.\",\n  \"ip_target\": \"72.21.91.29\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 64.42637690063566,
+      "tempo_mcp_totale_sec": 3.1045807995833457,
+      "tempo_sql_reale_sec": 0.51943,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 63
+    },
+    "Tempo Totale (s)": 88.3
+  },
+  {
+    "ID": "TEST_CAT_D_079",
+    "ip_target": "192.168.10.14",
+    "start_time": "2017-07-07 10:15:00",
+    "end_time": "2017-07-07 10:30:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2). Il tool 'detect_beaconing' ha identificato un flusso verso l'IP esterno 205.174.165.73 sulla porta 8080 con un Anomaly Score di 100 e il tag 'CONFIRMED_BEACONING_C2'. Il pattern mostra 26 connessioni con un intervallo medio di 10 secondi e un Coefficiente di Variazione (CV) pari a 0.0, indicando una periodicità perfetta tipica dei beaconing malware. Inoltre, 'compute_verdict_scores' assegna uno score di 0.95 a BEACONING_C2, il più alto tra tutte le categorie. Sebbene 'get_rate_statistics' segnali un'anomalia di burst PPS (30.42) e 'get_host_port_distribution' indichi un sospetto brute force sulla porta 53, il volume di traffico DNS (403 flussi verso 192.168.10.3) è interno alla LAN e non raggiunge le soglie massime per un DoS volumetrico (flussi_web_totali 262, RPS 0.29). La presenza di un singolo canale C2 attivo verso un IP esterno su porta non standard (8080) con cadenza regolare è sufficiente a classificare l'host come compromesso, prevalendo sul traffico di fondo.\",\n  \"ip_target\": \"192.168.10.14\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 42.15870379982516,
+      "tempo_mcp_totale_sec": 3.905510999262333,
+      "tempo_sql_reale_sec": 0.5716959999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1147,
+      "Bot": 16
+    },
+    "Tempo Totale (s)": 183.27
+  },
+  {
+    "ID": "TEST_CAT_C_080",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-07 14:45:00",
+    "end_time": "2017-07-07 15:00:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un'attività di Port Scan L4 aggressivo da parte dell'host 172.16.0.1. Il tool 'get_host_port_distribution' riporta 'sospetto_portscan': true e 'sospetto_bruteforce': true, con 998 porte uniche contattate e 993 porte classificate come 'probe'. Questo pattern è coerente con una scansione sistematica di un ampio range di porte di destinazione, non con traffico web legittimo o DoS volumetrico. Il tool 'compute_verdict_scores' assegna uno score di 0.95 a SCAN_BRUTEFORCE, il valore massimo tra le categorie, e suggerisce esplicitamente questo verdetto. Sebbene 'get_rate_statistics' segnali un'anomalia di burst PPS (986.98) e 'search_http_l7_anomalies' indichi 'sospetto_web_bruteforce': true, il volume di flussi web (842) e la concentrazione su poche destinazioni web non soddisfano le soglie minime per DOS_VOLUMETRIC (>= 1.000 richieste/flussi o RPS > 10 con allarme di saturazione specifico per L7) in presenza di una scansione L4 così marcata. La presenza di 998 porte distinte contattate è il discriminante primario che classifica l'attività come SCAN_BRUTEFORCE, in linea con la Rule #1 del piano d'azione investigativo. Non sono presenti contro-evidenze valide per declassare a BENIGN, dato che la scansione di quasi 1000 porte è un comportamento malevolo tipico di ricognizione.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 40.988331999164075,
+      "tempo_mcp_totale_sec": 134.26191939925775,
+      "tempo_sql_reale_sec": 19.428193,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 109558,
+      "PortScan": 29657
+    },
+    "Tempo Totale (s)": 303.57
+  },
+  {
+    "ID": "TEST_CAT_E_081",
+    "ip_target": "192.168.10.8",
+    "start_time": "2017-07-04 14:15:00",
+    "end_time": "2017-07-04 14:30:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Confermo il verdetto dello Stage 1. L'analisi delle evidenze oggettive dimostra che il traffico è riconducibile a browsing intenso e legittimo, non a un attacco. Sebbene 'get_rate_statistics' segnali un'allarme 'CRITICO' per il volume assoluto (2154 flussi, 816 web), la metrica 'concentrazione_flussi_per_destinazione_web' è molto bassa (2.84 flussi/destinazione), indicando un alto fan-out verso 287 destinazioni distinte. Il tool 'resolve_host_info' conferma che le destinazioni sono domini eterogenei e reputati (CDN, social, pubblicità come Facebook, Alibaba, Fastly), coerenti con traffico web normale. Inoltre, 'search_http_l7_anomalies' non rileva anomalie L7, brute force o exploit (score WEB_ATTACK_EXPLOIT 0.4, sotto soglia critica), e 'detect_beaconing' non rileva pattern C2. Il flag 'sospetto_bruteforce' su porte 53/137 in 'get_host_port_distribution' è smentito dalla natura del traffico DNS (1159 flussi verso un solo host interno, tipico di resolver) e dall'assenza di pattern di scan strutturato (solo 14 porte uniche, sotto la soglia di 15 per SCAN_BRUTEFORCE, e senza connessioni multiple fallite su porte di gestione). L'assenza di contro-evidenze per un attacco e la presenza di contro-evidenze per un falso positivo (basso fan-out, domini legittimi) giustificano la classificazione come BENIGN.\",\n  \"ip_target\": \"192.168.10.8\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 45.55682669952512,
+      "tempo_mcp_totale_sec": 4.775183201301843,
+      "tempo_sql_reale_sec": 0.35484899999999997,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 3860
+    },
+    "Tempo Totale (s)": 207.61
+  },
+  {
+    "ID": "TEST_CAT_B_082",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-05 09:45:00",
+    "end_time": "2017-07-05 10:00:00",
+    "Categoria": "cat_b",
+    "Verdetto Atteso": "DOS_VOLUMETRIC",
+    "Verdetto LLM": "DOS_VOLUMETRIC",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"DOS_VOLUMETRIC\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. Le evidenze oggettive indicano un attacco di saturazione volumetrica a livello applicativo (L7). Il tool 'get_rate_statistics' riporta uno stato 'ANOMALIA_RILEVATA' con diagnosi 'CRITICO', evidenziando un accumulo massivo di 2429 flussi web concentrati su sole 2 destinazioni (concentrazione di ~1214 flussi per destinazione), ben oltre la soglia di 1.000 richieste/flussi che definisce un DoS volumetrico. Il burst PPS di 637.85 e la densità di flussi confermano la saturazione delle risorse. La distribuzione delle porte mostra 2340 flussi diretti alla porta 80 verso un'unica destinazione, escludendo pattern di port scan (SCAN_BRUTEFORCE) o beaconing (BEACONING_C2), quest'ultimo ulteriormente smentito dai tag 'INTERNAL_LAN_KEEPALIVE' presenti nei flussi residui. Sebbene 'search_http_l7_anomalies' indichi 'sospetto_web_bruteforce = true', il volume massivo (>1.000 flussi) e l'allarme critico di saturazione impongono tassativamente la classificazione come DOS_VOLUMETRIC, in quanto il criterio di WEB_ATTACK_EXPLOIT si applica a volumi inferiori a 1.000 flussi in assenza di allarmi di flood. Lo score euristico di 0.95 per DOS_VOLUMETRIC è pienamente coerente con i dati grezzi.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"DOS_VOLUMETRIC\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"DOS_VOLUMETRIC\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 68.2782912994735,
+      "tempo_mcp_totale_sec": 3.9235379002057016,
+      "tempo_sql_reale_sec": 0.047082,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 2715,
+      "DoS slowloris": 893
+    },
+    "Tempo Totale (s)": 96.54
+  },
+  {
+    "ID": "TEST_CAT_D_083",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 11:45:00",
+    "end_time": "2017-07-07 12:00:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2). Il tool 'detect_beaconing' ha identificato un flusso verso l'IP esterno 205.174.165.73 sulla porta 8080 con un Anomaly Score di 100 e il tag 'CONFIRMED_BEACONING_C2'. Il pattern mostra 18 connessioni con un intervallo medio di 48.5 secondi e un coefficiente di variazione (CV) di 0.535, indicando una cadenza periodica regolare compatibile con il beaconing di un malware. Inoltre, il tool 'compute_verdict_scores' assegna uno score di 0.95 alla categoria BEACONING_C2, il valore più alto tra tutte le categorie analizzate, suggerendo esplicitamente questo verdetto. Sebbene sia presente un segnale di SCAN_BRUTEFORCE (score 0.85) legato a 11 porte uniche contattate, la regola tassativa stabilisce che la presenza di anche un solo canale C2 attivo rende l'host compromesso e prevale sulle altre classificazioni. L'assenza di anomalie L7 (score WEB_ATTACK_EXPLOIT 0.0) e la bassa concentrazione di flussi web (2.81 flussi/destinazione) escludono un attacco volumetrico o di saturazione. Pertanto, il verdetto di Stage 1 viene confermato.\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 41.67303529987112,
+      "tempo_mcp_totale_sec": 2.6909636994823813,
+      "tempo_sql_reale_sec": 0.358418,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 491,
+      "Bot": 6
+    },
+    "Tempo Totale (s)": 175.54
+  },
+  {
+    "ID": "TEST_CAT_D_084",
+    "ip_target": "192.168.10.15",
+    "start_time": "2017-07-07 12:15:00",
+    "end_time": "2017-07-07 12:30:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"Le evidenze confermano in modo inequivocabile la presenza di un canale di comando e controllo (C2) attivo. Il tool 'detect_beaconing' ha identificato 18 connessioni ripetute dall'host 192.168.10.15 verso l'IP esterno 205.174.165.73 sulla porta 8080 (classificata come HTTP_Proxy). Il pattern temporale mostra un intervallo medio di 48.8 secondi con un coefficiente di variazione (CV) di 0.539, indicando una periodicità regolare compatibile con il beaconing di un malware. Il tool ha assegnato il tag 'CONFIRMED_BEACONING_C2' e un Anomaly Score di 100. La destinazione è un IP esterno non infrastrutturale (infra_provider Unknown, nessun hostname risolto), coerente con un server C2. Il volume di traffico complessivo è basso (0.74 PPS, 40 flussi totali), il che esclude un attacco volumetrico (DOS_VOLUMETRIC). La distribuzione delle porte (6 uniche contattate) e l'assenza di tentativi falliti ripetuti su porte di gestione escludono un port scan o brute force L4 (SCAN_BRUTEFORCE). L'assenza di anomalie L7 su 21 flussi web esclude un attacco applicativo (WEB_ATTACK_EXPLOIT). Lo score euristico BEACONING_C2 è 0.95, che supera la soglia di chiusura. Il verdetto dello Stage 1 è confermato.\",\n  \"ip_target\": \"192.168.10.15\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 73.97716109966859,
+      "tempo_mcp_totale_sec": 0.7402747008018196,
+      "tempo_sql_reale_sec": 0.08055699999999999,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 50,
+      "Bot": 6
+    },
+    "Tempo Totale (s)": 99.47
+  },
+  {
+    "ID": "TEST_CAT_D_085",
+    "ip_target": "192.168.10.14",
+    "start_time": "2017-07-07 10:30:00",
+    "end_time": "2017-07-07 10:45:00",
+    "Categoria": "cat_d",
+    "Verdetto Atteso": "BEACONING_C2",
+    "Verdetto LLM": "BEACONING_C2",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BEACONING_C2\",\n  \"motivazione\": \"L'analisi conferma il verdetto di Stage 1. L'host 192.168.10.14 presenta un canale di comando e controllo (C2) attivo verso l'IP esterno 205.174.165.73 sulla porta 8080. Il tool detect_beaconing riporta 'beaconing_c2_rilevato: true' con 61 connessioni ripetute, un intervallo medio di 14.5 secondi e un coefficiente di variazione (CV) di 1.353, pattern coerente con un impianto C2 che utilizza jitter per eludere il rilevamento. La distribuzione delle porte mostra 71 flussi concentrati su questa singola destinazione esterna, e search_connection_attempts conferma 71 tentativi verso la stessa coppia IP:porta. Lo score euristico BEACONING_C2 è 0.95, il valore massimo tra le categorie. Le altre categorie sono escluse: DOS_VOLUMETRIC ha score 0.0 e volumi bassi (PPS 7.17); WEB_ATTACK_EXPLOIT ha score 0.0 e nessun'anomalia L7; SCAN_BRUTEFORCE ha score 0.85 ma solo 9 porte uniche contattate (sotto la soglia di 15) e il flag di sospetto bruteforce su porta 53 è riconducibile a traffico DNS interno legittimo (wpad.testtest1.ca, tag INTERNAL_LAN_KEEPALIVE). La presenza di un solo canale C2 attivo è sufficiente a classificare l'host come compromesso.\",\n  \"ip_target\": \"192.168.10.14\",\n  \"verdetto_stage_1\": \"BEACONING_C2\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BEACONING_C2\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 77.53159130038694,
+      "tempo_mcp_totale_sec": 1.4943896005861461,
+      "tempo_sql_reale_sec": 0.184367,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 291,
+      "Bot": 36
+    },
+    "Tempo Totale (s)": 104.19
+  },
+  {
+    "ID": "TEST_CAT_A_086",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 09:15:00",
+    "end_time": "2017-07-06 09:30:00",
+    "Categoria": "cat_a",
+    "Verdetto Atteso": "WEB_ATTACK_EXPLOIT",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "FN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Confermo il verdetto dello Stage 1. L'analisi delle evidenze oggettive dimostra che il traffico è legittimo e non presenta caratteristiche di attacco. 1) WEB_ATTACK_EXPLOIT: Lo score euristico è 0.40 (< 0.80). Sebbene 'search_http_l7_anomalies' indichi 'sospetto_web_bruteforce = true' con 304 tentativi da un singolo IP, il tool riporta 'anomalie_l7_trovate = 0', 'login_endpoint_targeted = false' e 'target_colpiti_count = 0'. La nota logica di 'compute_verdict_scores' conferma esplicitamente che si tratta di un possibile falso positivo dell'euristica di conteggio, non corroborato da anomalie reali. 2) DOS_VOLUMETRIC: Nonostante l'allarme 'ANOMALIA_RILEVATA' in 'get_rate_statistics', la metrica 'concentrazione_flussi_per_destinazione_web' è 51.5, ma il volume totale di richieste web è basso (RPS 0.34, ben sotto la soglia di 10 RPS per flood massivo). I 2 flussi Slowloris rilevati sono su porte UDP (137, 123) e non su traffico HTTP, quindi non configurano un DoS L7. 3) SCAN_BRUTEFORCE: 'get_host_port_distribution' segnala 'sospetto_bruteforce = true' sulla porta 53, ma si tratta di traffico DNS verso un server interno (192.168.10.3) con 123 flussi, tipico di risoluzione nomi, non di brute force L4 su porte di gestione (22, 21, 3389). I tentativi su porte 22 e 21 verso 192.168.10.50 sono pochi (18 e 15 flussi) e non raggiungono la soglia di 25 tentativi ripetuti falliti per brute force. 4) BEACONING_C2: 'detect_beaconing' non rileva minacce C2; il traffico verso 192.168.10.50:80 è etichettato 'INTERNAL_LAN_KEEPALIVE' e ha un CV alto (4.349), incompatibile con beaconing regolare. In assenza di contro-evidenze specifiche per falso positivo su minacce reali (che non esistono, dato che le minacce segnalate sono false positive o traffico normale), e con tutti gli score malevoli a 0.0 o bassi, il traffico è classificato come BENIGN.\",\n  \"ip_target\": \"192.168.10.50\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 40.85726290009916,
+      "tempo_mcp_totale_sec": 4.447238699998707,
+      "tempo_sql_reale_sec": 0.19466,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 970,
+      "Web Attack â€“ Brute Force": 89
+    },
+    "Tempo Totale (s)": 263.54
+  },
+  {
+    "ID": "TEST_CAT_C_087",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-04 14:45:00",
+    "end_time": "2017-07-04 15:00:00",
+    "Categoria": "cat_c",
+    "Verdetto Atteso": "SCAN_BRUTEFORCE",
+    "Verdetto LLM": "SCAN_BRUTEFORCE",
+    "Esito Auditing": "TP",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"SCAN_BRUTEFORCE\",\n  \"motivazione\": \"Le evidenze oggettive confermano in modo inequivocabile un attacco di Brute Force L4 su porta di gestione. Il tool 'get_host_port_distribution' segnala 'sospetto_bruteforce: true' con target specifico sulla porta 22 (SSH), mentre 'search_connection_attempts' identifica 735 tentativi di connessione da 172.16.0.1 verso 192.168.10.50:22, classificandoli esplicitamente come 'SOSPETTO_BRUTEFORCE'. Lo score euristico 'compute_verdict_scores' assegna un valore di 0.95 a SCAN_BRUTEFORCE, il massimo tra le categorie. Sebbene 'get_rate_statistics' indichi un burst PPS elevato (45.05) e 'get_traffic_summary' segnali alta densità di flussi (>500), la natura del traffico è concentrata su un'unica porta di destinazione (22) con un numero massiccio di connessioni ripetute, pattern tipico di un tentativo di forzatura delle credenziali SSH piuttosto che di una saturazione volumetrica generica (DOS_VOLUMETRIC) o di uno scan di porte (che richiederebbe molteplici porte di destinazione). L'assenza di traffico HTTP/L7 ('search_http_l7_anomalies' = 0 flussi) esclude WEB_ATTACK_EXPLOIT. Il verdetto di Stage 1 è confermato.\",\n  \"ip_target\": \"172.16.0.1\",\n  \"verdetto_stage_1\": \"SCAN_BRUTEFORCE\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"SCAN_BRUTEFORCE\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 35.29283699952066,
+      "tempo_mcp_totale_sec": 3.2712550996802747,
+      "tempo_sql_reale_sec": 0.656953,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "SSH-Patator": 567,
+      "BENIGN": 904
+    },
+    "Tempo Totale (s)": 144.03
+  },
+  {
+    "ID": "TEST_CAT_E_088",
+    "ip_target": "192.168.10.19",
+    "start_time": "2017-07-03 12:00:00",
+    "end_time": "2017-07-03 12:15:00",
+    "Categoria": "cat_e",
+    "Verdetto Atteso": "BENIGN",
+    "Verdetto LLM": "BENIGN",
+    "Esito Auditing": "TN",
+    "Stato Investigazione": "COMPLETED",
+    "Report_MD": "{\n  \"verdetto\": \"BENIGN\",\n  \"motivazione\": \"Confermo il verdetto dello Stage 1. L'analisi delle evidenze oggettive dimostra che il traffico è riconducibile a attività legittime di navigazione web e risoluzione DNS, privo di indicatori di attacco. 1) Assenza di minacce C2: 'detect_beaconing' riporta 'beaconing_c2_rilevato: false' e i flussi verso 192.168.10.3:53 sono etichettati come 'INTERNAL_LAN_KEEPALIVE' con CV alto (1.081), incompatibile con beaconing. 2) Assenza di exploit web: 'search_http_l7_anomalies' non rileva anomalie L7, 'sospetto_web_bruteforce' è false e 'login_endpoint_targeted' è false. Il campione HTTP mostra domini noti (YouTube, Google, O2.pl) con entropia payload 0.0. 3) Assenza di DoS volumetrico: nonostante l'allarme 'ANOMALIA_RILEVATA' di 'get_rate_statistics', la metrica 'concentrazione_flussi_per_destinazione_web' è bassa (2.64 flussi/destinazione), indicando un alto fan-out tipico del browsing intenso verso CDN e servizi terzi, non una saturazione su un singolo target. I PPS aggregati (24.65) sono ben sotto le soglie di flood. 4) Assenza di scan/bruteforce: 'get_host_port_distribution' mostra solo 8 porte uniche contattate, con 'sospetto_portscan: false'. Il flag 'sospetto_bruteforce: true' sulla porta 53 è un falso positivo generato dall'elevato volume di query DNS verso il server interno (537 flussi), confermato come traffico ordinario da 'detect_beaconing' e dalla natura UDP/DNS dei flussi. Lo score euristico di 0.85 per SCAN_BRUTEFORCE è ribaltato in quanto basato su un'interpretazione errata del volume DNS come tentativo di autenticazione fallita, mentre le evidenze puntuali (basso numero di porte, assenza di pattern di scan, natura del traffico) supportano la classificazione BENIGN.\",\n  \"ip_target\": \"192.168.10.19\",\n  \"verdetto_stage_1\": \"BENIGN\",\n  \"is_corretto_in_stage_2\": false,\n  \"verdetto_suggerito_tool\": \"BENIGN\"\n}",
+    "Telemetria": {
+      "tempo_llm_sec": 45.452389100566506,
+      "tempo_mcp_totale_sec": 4.35891090054065,
+      "tempo_sql_reale_sec": 0.18501900000000002,
+      "tempo_totale_esecuzione": 0.0,
+      "tempo_attesa_rate_limit_sec": 0.0,
+      "stato_investigazione": "COMPLETED"
+    },
+    "Ground Truth DB": {
+      "BENIGN": 1369
+    },
+    "Tempo Totale (s)": 191.26
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "modello": "Qwen3.6-27B",
+  "timestamp": "20260911_000815",
+  "matrice_confusione": {
+    "TP": 54,
+    "FP": 7,
+    "TN": 17,
+    "FN": 10,
+    "FP_MISMATCH": 4,
+    "NON_PARSABILE": 0,
+    "totale_casi": 88
+  },
+  "metriche": {
+    "accuracy": 0.8068,
+    "precision": 0.8852,
+    "recall": 0.8438,
+    "f1_score": 0.864
+  }
+}
