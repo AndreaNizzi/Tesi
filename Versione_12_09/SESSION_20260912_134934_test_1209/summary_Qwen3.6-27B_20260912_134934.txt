@@ -1,0 +1,16 @@
+
+======================================================================
+MATRICE DI CONFUSIONE E METRICHE DI AUDITING RECAP
+======================================================================
+            Reale: MINACCIA    Reale: BENIGNO
+Pred: MINACCIA    TP: 63           FP: 5           
+Pred: BENIGNO      FN: 0            TN: 20          
+----------------------------------------------------------------------
+Scenari non parsabili / falliti: 0
+Totale casi validati: 88
+----------------------------------------------------------------------
+Accuratezza (Accuracy): 94.32%
+Precisione (Precision): 92.65%
+Richiamo (Recall):      100.00%
+F1-Score:               96.18%
+======================================================================
