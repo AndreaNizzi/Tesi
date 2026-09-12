@@ -1,0 +1,80 @@
+[
+  
+  {
+    "id": "TEST_CAT_A_003",
+    "categoria_tag": "cat_a",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 09:30:00",
+    "end_time": "2017-07-06 09:45:00"
+  },
+  {
+    "id": "TEST_CAT_A_004",
+    "categoria_tag": "cat_a",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 10:30:00",
+    "end_time": "2017-07-06 10:45:00"
+  },
+  
+  {
+    "id": "TEST_CAT_A_010",
+    "categoria_tag": "cat_a",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 09:15:00",
+    "end_time": "2017-07-06 09:30:00"
+  },
+  {
+    "id": "TEST_CAT_A_011",
+    "categoria_tag": "cat_a",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 09:30:00",
+    "end_time": "2017-07-06 09:45:00"
+  },
+  
+  {
+    "id": "TEST_CAT_A_023",
+    "categoria_tag": "cat_a",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 09:45:00",
+    "end_time": "2017-07-06 10:00:00"
+  },
+  
+  {
+    "id": "TEST_CAT_A_039",
+    "categoria_tag": "cat_a",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 09:45:00",
+    "end_time": "2017-07-06 10:00:00"
+  },
+  
+  {
+    "id": "TEST_CAT_A_041",
+    "categoria_tag": "cat_a",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 10:15:00",
+    "end_time": "2017-07-06 10:30:00"
+  },
+  
+  {
+    "id": "TEST_CAT_A_056",
+    "categoria_tag": "cat_a",
+    "ip_target": "172.16.0.1",
+    "start_time": "2017-07-06 10:30:00",
+    "end_time": "2017-07-06 10:45:00"
+  },
+  
+  {
+    "id": "TEST_CAT_A_076",
+    "categoria_tag": "cat_a",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 10:15:00",
+    "end_time": "2017-07-06 10:30:00"
+  },
+  
+  {
+    "id": "TEST_CAT_A_086",
+    "categoria_tag": "cat_a",
+    "ip_target": "192.168.10.50",
+    "start_time": "2017-07-06 09:15:00",
+    "end_time": "2017-07-06 09:30:00"
+  }
+]
