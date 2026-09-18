@@ -1,21 +1,28 @@
+"""
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING="utf-8"
+py .\test_suite.py | Tee-Object -FilePath "out.txt"
+"""
 import asyncio
 import io
+import re
 import json
 import os
 import sys
 import time
 import traceback
+import httpx
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from mcp import StdioServerParameters
 
-import config
 import utils
 from client import esegui_analisi_mcp
 
 load_dotenv()
+
 
 class TeeStream:
     """Classe di supporto per catturare i log in una stringa e contemporaneamente stamparli su console."""
@@ -32,280 +39,344 @@ class TeeStream:
 
     def get_log(self):
         return self.buffer.getvalue()
-
-def seleziona_modello_engine():
-    """Mostra il menu di selezione del modello."""
-    while True:
-        print("============================================================")
-        print("CONFIGURAZIONE INIZIALE MODELLO PER BENCHMARK")
-        print("1) Llama 3.3 (70B Versatile) [Context Limit: 5000 char/tool]")
-        print("2) Qwen 3.6 27B (Server Interhost)  [Context Limit: 5000 char/tool]")
-        print("3) Esci dal programma")
-        print("============================================================")
-
-        scelta = input("\nScegli il modello engine (default: 2): ").strip() or "2"
-
-        if scelta == "3":
-            print("\nUscita dal programma.")
-            sys.exit(0)
-
-        elif scelta == "1":
-            api_key = os.getenv("GROQ_API_KEY")
-            if not api_key:
-                print("[ERRORE]: Chiave GROQ_API_KEY non trovata nel file .env")
-                sys.exit(1)
-            base_url = "https://api.groq.com/openai/v1"
-            model_name = "llama-3.3-70b-versatile"
-            max_tool_chars = 5000
-
-            return api_key, base_url, model_name, max_tool_chars
-
-        elif scelta == "2":
-            model_name = "Qwen3.6-27B"
-            max_tool_chars = 5000
-            api_key = os.getenv("INTERHOST_API_KEY", "ntopng_mcp_test")
-            base_url = os.getenv("INTERHOST_BASE_URL", "https://aitest.interhost.it/v1")
-            
-            if not api_key:
-                print("[ERRORE]: Chiave INTERHOST_API_KEY non trovata nel file .env")
-                sys.exit(1)
-
-            return api_key, base_url, model_name, max_tool_chars
-        else:
-            print("\n[ERRORE]: Opzione non valida. Inserisci 1, 2 o 3.\n")
-
+        
 # =====================================================================
 # CORE ESECUZIONE BENCHMARK
 # =====================================================================
-async def run_benchmark():
-    file_scenari = "test_scenarios.json"
-    file_gt = "ground_truth.json"
 
-    if not os.path.exists(file_scenari):
-        print(f"File {file_scenari} non trovato.")
+async def run_benchmark():
+     # SELEZIONE DINAMICA FILE SCENARI 
+    scenari_disponibili = {
+        "0": ("Tutti gli scenari (Default)", "test_scenarios.json"),
+        "A": ("Categoria A (Web Attack / Exploit)", "test_scenarios_A.json"),
+        "B": ("Categoria B (DoS Volumetric)", "test_scenarios_B.json"),
+        "C": ("Categoria C (Scan / Bruteforce)", "test_scenarios_C.json"),
+        "D": ("Categoria D (Beaconing / C2)", "test_scenarios_D.json"),
+        "E": ("Categoria E (Benign / Traffico Nominale)", "test_scenarios_E.json"),
+    }
+
+    print("\n" + "=" * 50)
+    print("SELEZIONE DATASET SCENARI BENCHMARK")
+    print("=" * 50)
+    for key, (desc, fname) in scenari_disponibili.items():
+        esiste = "✔" if os.path.exists(fname) else "✖ (NON TROVATO)"
+        print(f" [{key}] {desc:<42} -> {fname} [{esiste}]")
+    print("=" * 50)
+    print("\nSeleziona il dataset da testare [0/A/B/C/D/E] (Default: 0): ")
+    scelta = input("").strip().upper()
+    if not scelta:
+        scelta = "0"
+
+    if scelta not in scenari_disponibili:
+        print(f"[ERRORE] Opzione '{scelta}' non valida. Annullamento.")
         return
 
-    # Carica la Ground Truth solo per l'auditing di Python
+    desc_scelta, file_scenari = scenari_disponibili[scelta]
+
+    if not os.path.exists(file_scenari):
+        print(f"\n[ERRORE] Il file '{file_scenari}' non esiste sul disco.")
+        return
+
+    print(f"\n-> Caricamento scenario selezionato: {desc_scelta} ({file_scenari})")
+
+    file_gt = "ground_truth.json"
+
     mappa_gt = {}
     if os.path.exists(file_gt):
         with open(file_gt, "r", encoding="utf-8") as f_gt:
             gt_data = json.load(f_gt)
             mappa_gt = {
-                item["id"]: item.get("verdetto_atteso", "SCONOSCIUTO") 
-                for item in gt_data 
+                item["id"]: item.get("verdetto_atteso", "SCONOSCIUTO")
+                for item in gt_data
                 if "id" in item
             }
 
-    api_key, base_url, model_name, max_tool_chars = seleziona_modello_engine()
-
+    api_key, base_url, model_name, max_tool_chars = (
+        utils.seleziona_modello_engine()
+    )
     client_openai = AsyncOpenAI(
         api_key=api_key,
-        base_url=base_url
+        base_url=base_url,
+        http_client=httpx.AsyncClient(
+            timeout=httpx.Timeout(
+                connect=10.0,
+                read=45.0,
+                write=10.0,
+                pool=10.0
+            )
+        )
     )
 
     mcp_server_params = StdioServerParameters(
         command=sys.executable,
         args=["server.py"],
         env=os.environ.copy(),
+        err=sys.stderr
     )
 
     with open(file_scenari, "r", encoding="utf-8") as f:
         scenari = json.load(f)
 
     risultati = []
-    stats = {"TP": 0, "FP": 0, "TN": 0, "FN": 0, "FP_MISMATCH": 0, "NON_PARSABILE": 0}
+    stats = {
+        "TP": 0,
+        "FP": 0,
+        "TN": 0,
+        "FN": 0,
+        "FP_MISMATCH": 0,
+        "NON_PARSABILE": 0,
+    }
+
+    ts_sessione = datetime.now().strftime("%Y%m%d_%H%M%S")
+    cartella_sessione = Path("outputs") / f"SESSION_{ts_sessione}"
+    cartella_sessione.mkdir(parents=True, exist_ok=True)
+
+    model_name_safe = re.sub(r"[^\w\.-]", "_", model_name)
 
     print(f"\n==================================================")
     print(f"AVVIO TEST SUITE AUTOMATIZZATA CON GROUND TRUTH")
     print(f"Scenari: {len(scenari)} | Modello: {model_name} | Base URL: {base_url}")
-    print(f"==================================================\n")
+    print(f"==================================================")
 
-    for idx, sc in enumerate(scenari, start=1):
-        print(f"\n--- [SCENARIO {idx}/{len(scenari)}: {sc['id']}] ---")
-        print(f"Target: {sc['ip_target']} | Categoria Originaria: {sc['categoria_tag']}")
+    interrotto_da_utente = False
 
-        if not utils.valida_indirizzo_ip(sc["ip_target"]):
-            print(f"IP target non valido ({sc['ip_target']}.")
-            stats["NON_PARSABILE"] += 1
-            continue
+    try:
+        for idx, sc in enumerate(scenari, start=1):
+            if interrotto_da_utente:
+                break
+            print(f"\n--- [SCENARIO {idx}/{len(scenari)}: {sc['id']}] ---")
+            print(f"Target: {sc['ip_target']} | Categoria Originaria: {sc['categoria_tag']}")
 
-        dt_start = utils.valida_formato_timestamp(sc["start_time"])
-        dt_end = utils.valida_formato_timestamp(sc["end_time"])
+            if not utils.valida_indirizzo_ip(sc["ip_target"]):
+                print(f"IP target non valido ({sc['ip_target']}).")
+                stats["NON_PARSABILE"] += 1
+                continue
 
-        if not dt_start or not dt_end:
-            print(f"Errore nei timestamp per lo scenario {sc['id']}: formato non valido.")
-            stats["NON_PARSABILE"] += 1
-            continue
+            # Applicazione tolleranza SIEM (-2 minuti allo start)
+            dt_start = utils.valida_formato_timestamp(sc["start_time"], minuti_anticipo=2)
+            dt_end = utils.valida_formato_timestamp(sc["end_time"])
 
-        # Formattazione ISO-8601 con 'T' per i prompt e per i Tool MCP
-        start_time_iso = sc["start_time"].replace(" ", "T")
-        end_time_iso = sc["end_time"].replace(" ", "T")
+            if not dt_start or not dt_end:
+                print(f"Errore nei timestamp per lo scenario {sc['id']}: formato non valido.")
+                stats["NON_PARSABILE"] += 1
+                continue
 
-        verdetto_atteso = mappa_gt.get(sc["id"], sc.get("verdetto_atteso", "SCONOSCIUTO"))
+            # Genera le stringhe ISO usando gli oggetti datetime già shiftati
+            start_time_iso = dt_start.strftime("%Y-%m-%d %H:%M:%S").replace(" ", "T")
+            end_time_iso = dt_end.strftime("%Y-%m-%d %H:%M:%S").replace(" ", "T")
 
-        mappa_tag_config = {
-            "web_attack_exploit": "cat_a",
-            "dos_volumetric": "cat_b",
-            "scan_bruteforce": "cat_c",
-            "beaconing_c2": "cat_d",
-            "benign": "cat_e",
-            "cat_a": "cat_a",
-            "cat_b": "cat_b",
-            "cat_c": "cat_c",
-            "cat_d": "cat_d",
-            "cat_e": "cat_e"
-        }
+            verdetto_atteso = mappa_gt.get(
+                sc["id"], sc.get("verdetto_atteso", "SCONOSCIUTO")
+            )
 
-        tag_cat_raw = str(sc.get("categoria_tag", "")).strip().lower()
-        cat_tag_config = mappa_tag_config.get(tag_cat_raw, "cat_e")
+            mappa_tag_config = {
+                "web_attack_exploit": "cat_a",
+                "dos_volumetric": "cat_b",
+                "scan_bruteforce": "cat_c",
+                "beaconing_c2": "cat_d",
+                "benign": "cat_e",
+            }
 
-        id_upper = str(sc.get("id", "")).upper()
-        if "TEST_CAT_A" in id_upper:
-            cat_tag_config = "cat_a"
-        elif "TEST_CAT_B" in id_upper:
-            cat_tag_config = "cat_b"
-        elif "TEST_CAT_C" in id_upper:
-            cat_tag_config = "cat_c"
-        elif "TEST_CAT_D" in id_upper:
-            cat_tag_config = "cat_d"
-        elif "TEST_CAT_E" in id_upper:
-            cat_tag_config = "cat_e"
+            tag_cat_raw = str(sc.get("categoria_tag", "")).strip().lower()
+            cat_tag_config = mappa_tag_config.get(tag_cat_raw, "cat_e")
 
-        prompt_iniziale = config.genera_prompt_iniziale(
-            sc['ip_target'], start_time_iso, end_time_iso, cat_tag_config
-        )
+            id_upper = str(sc.get("id", "")).upper()
+            for cat in ["A", "B", "C", "D", "E"]:
+                if f"TEST_CAT_{cat}" in id_upper:
+                    cat_tag_config = f"cat_{cat.lower()}"
+                    break
 
-        t_inizio = time.perf_counter()
+            t_inizio = time.perf_counter()
+            original_stdout = sys.stdout
+            tee = TeeStream(original_stdout)
+            sys.stdout = tee
 
-        # Intercetta lo stdout per catturare la trascrizione CLI completa durante l'esecuzione dell'analisi MCP
-        original_stdout = sys.stdout
-        tee = TeeStream(original_stdout)
-        sys.stdout = tee
-
-        try:
             try:
-                report_md, verdetto_ottenuto, meta = await esegui_analisi_mcp(
+                log_mcp_str = ""
+                risultato_mcp = await esegui_analisi_mcp(
                     client=client_openai,
                     mcp_server_params=mcp_server_params,
                     ip_target=sc["ip_target"],
                     start_time=start_time_iso,
                     end_time=end_time_iso,
                     model_name=model_name,
-                    prompt_iniziale=prompt_iniziale,
                     categoria_tag=cat_tag_config,
                     max_tool_chars=max_tool_chars,
-                    sleep_time=1.0
                 )
+
+                report_md = risultato_mcp.get("report", "")
+                verdetto_final = risultato_mcp.get("verdetto", "NON_IDENTIFICATO")
+                meta = risultato_mcp.get("metriche", {})
+                stato_investigazione = risultato_mcp.get("stato", "COMPLETATO")
+                
+                log_mcp_str = risultato_mcp.get("log_dettagliato", "")
 
                 tempo_totale = time.perf_counter() - t_inizio
                 
-            finally:
-                # Assicura il ripristino dello stdout anche in caso di eccezioni 
-                sys.stdout = original_stdout
-                cli_log = tee.get_log()
+                cli_log_base = tee.get_log()
+                if log_mcp_str:
+                    cli_log = (
+                        f"{cli_log_base}\n\n"
+                        f"==================== TRACCIA DETTAGLIATA PAYLOAD (MCP & LLM) ====================\n"
+                        f"{log_mcp_str}"
+                    )
+                else:
+                    cli_log = cli_log_base
 
-            # Fallback del verdetto: se l'estrazione da markdown fallisce, usa il verdetto raw del tool
-            verdetto_final = utils.estrai_verdetto_pulito(report_md)
-            if not verdetto_final or verdetto_final in ["-", "", "NON_IDENTIFICATO"]:
-                verdetto_final = verdetto_ottenuto if (verdetto_ottenuto and verdetto_ottenuto != "-") else "NON_IDENTIFICATO"
+                if not verdetto_final or verdetto_final in ["-", "", "NON_IDENTIFICATO"]:
+                    verdetto_final = "NON_IDENTIFICATO"
 
-            ground_truth_db = utils.controlla_ground_truth(sc["ip_target"], sc["start_time"], sc["end_time"])
-            esito_metrica = utils.calcola_esito_classificazione(verdetto_final, ground_truth_db, verdetto_atteso)
+                ground_truth_db = utils.controlla_ground_truth(
+                    sc["ip_target"], sc["start_time"], sc["end_time"]
+                )
+                esito_metrica = utils.calcola_esito_classificazione(
+                    verdetto_final, ground_truth_db, verdetto_atteso
+                )
 
-            if esito_metrica in ["TP", "TN", "FP", "FN", "NON_PARSABILE"]:
-                stats[esito_metrica] += 1
-            elif esito_metrica.startswith("FP_MISMATCH"):
-                stats["FP_MISMATCH"] += 1
-            else:
+                if esito_metrica in ["TP", "TN", "FP", "FN", "NON_PARSABILE"]:
+                    stats[esito_metrica] += 1
+                elif esito_metrica.startswith("FP_MISMATCH"):
+                    stats["FP_MISMATCH"] += 1
+                else:
+                    stats["NON_PARSABILE"] += 1
+
+                meta["stato_investigazione"] = stato_investigazione
+                telemetria_txt = f"--- TELEMETRIA ESECUZIONE ---\n```json\n{json.dumps(meta, indent=2)}\n```"
+
+                utils.salva_risultati_su_disco(
+                    ip_target=sc["ip_target"],
+                    categoria=cat_tag_config,
+                    report_md=report_md,
+                    log_txt=cli_log,
+                    telemetria_txt=telemetria_txt,
+                    start_time=dt_start,
+                    end_time=dt_end,
+                    cartella_sessione=cartella_sessione,
+                )
+
+                esito = {
+                    "ID": sc["id"],
+                    "ip_target": sc["ip_target"],
+                    "start_time": sc["start_time"],
+                    "end_time": sc["end_time"],
+                    "Categoria": cat_tag_config,
+                    "Verdetto Atteso": verdetto_atteso,
+                    "Verdetto LLM": verdetto_final,
+                    "Esito Auditing": esito_metrica,
+                    "Stato Investigazione": stato_investigazione,
+                    "Report_MD": report_md,
+                    "Telemetria": meta,
+                    "Ground Truth DB": ground_truth_db,
+                    "Tempo Totale (s)": round(tempo_totale, 2),
+                }
+
+                print(f" -> Categoria Applicata: {cat_tag_config}")
+                print(f" -> Verdetto LLM       : {verdetto_final}")
+                print(f" -> Stato              : {stato_investigazione}")
+                print(f" -> Ground Truth       : {ground_truth_db}")
+                print(f" -> Verdetto Atteso    : {verdetto_atteso}")
+                print(f" -> Esito              : {esito_metrica}")
+
+                risultati.append(esito)
+
+            except (KeyboardInterrupt, asyncio.CancelledError):
+                print(f"\n[AVVISO]: Interruzione rilevata durante lo scenario {sc['id']}.")
+                interrotto_da_utente = True
+                break
+
+            except BaseExceptionGroup as eg:
+                interruzione, _ = eg.split((KeyboardInterrupt, asyncio.CancelledError))
+                if interruzione:
+                    print(f"\n[AVVISO]: Interruzione CTRL+C (TaskGroup) durante lo scenario {sc['id']}.")
+                    interrotto_da_utente = True
+                    break
+
+                tempo_totale = time.perf_counter() - t_inizio
+                cli_log = tee.get_log() + f"\nExceptionGroup sollevato: {eg}"
+                print(f"[ERRORE]: TaskGroup durante lo scenario {sc['id']}: {eg}")
                 stats["NON_PARSABILE"] += 1
 
-            telemetria_txt = f"--- TELEMETRIA ESECUZIONE ---\n```json\n{json.dumps(meta, indent=2)}\n```"
+                utils.salva_risultati_su_disco(
+                    ip_target=sc["ip_target"],
+                    categoria=f"{cat_tag_config}_ERROR",
+                    report_md="[ERRORE TASKGROUP DURANTE L'ESECUZIONE]",
+                    log_txt=cli_log,
+                    telemetria_txt="--- TELEMETRIA ESECUZIONE ---\nERRORE TASKGROUP",
+                    start_time=dt_start,
+                    end_time=dt_end,
+                    cartella_sessione=cartella_sessione,
+                )
 
-            utils.salva_risultati_su_disco(
-                ip_target=sc["ip_target"],
-                categoria=cat_tag_config,
-                report_md=report_md,
-                log_txt=cli_log,
-                telemetria_txt=telemetria_txt,
-                start_time=dt_start,
-                end_time=dt_end
+                risultati.append({
+                    "ID": sc["id"],
+                    "ip_target": sc["ip_target"],
+                    "start_time": sc["start_time"],
+                    "end_time": sc["end_time"],
+                    "Categoria": cat_tag_config,
+                    "Verdetto Atteso": verdetto_atteso,
+                    "Verdetto LLM": "ERRORE_TASKGROUP",
+                    "Esito Auditing": "NON_PARSABILE",
+                    "Report_MD": "[ERRORE TASKGROUP DURANTE L'ESECUZIONE]",
+                    "Telemetria": {},
+                    "Ground Truth DB": "ERRORE",
+                    "Tempo Totale (s)": round(tempo_totale, 2),
+                })
+
+            except Exception as e:
+                tempo_totale = time.perf_counter() - t_inizio
+                cli_log = tee.get_log() + f"\nEccezione sollevata: {traceback.format_exc()}"
+                print(f"[ERRORE]: durante lo scenario {sc['id']}: {e}")
+                stats["NON_PARSABILE"] += 1
+
+                utils.salva_risultati_su_disco(
+                    ip_target=sc["ip_target"],
+                    categoria=f"{cat_tag_config}_ERROR",
+                    report_md="[ERRORE DURANTE L'ESECUZIONE]",
+                    log_txt=cli_log,
+                    telemetria_txt="--- TELEMETRIA ESECUZIONE ---\nERRORE",
+                    start_time=dt_start,
+                    end_time=dt_end,
+                    cartella_sessione=cartella_sessione,
+                )
+
+                risultati.append({
+                    "ID": sc["id"],
+                    "ip_target": sc["ip_target"],
+                    "start_time": sc["start_time"],
+                    "end_time": sc["end_time"],
+                    "Categoria": cat_tag_config,
+                    "Verdetto Atteso": verdetto_atteso,
+                    "Verdetto LLM": "ERRORE_ESECUZIONE",
+                    "Esito Auditing": "NON_PARSABILE",
+                    "Report_MD": f"[ERRORE DURANTE L'ESECUZIONE]: {e}",
+                    "Telemetria": {},
+                    "Ground Truth DB": "ERRORE",
+                    "Tempo Totale (s)": round(tempo_totale, 2),
+                })
+
+            finally:
+                sys.stdout = original_stdout
+
+    finally:
+        if risultati:
+            suffix = "_PARZIALE" if interrotto_da_utente else ""
+            output_filename = (
+                cartella_sessione
+                / f"benchmark_{model_name_safe}_{ts_sessione}{suffix}.json"
             )
 
-            esito = {
-                "ID": sc["id"],
-                "ip_target": sc["ip_target"],
-                "start_time": sc["start_time"],
-                "end_time": sc["end_time"],
-                "Categoria": cat_tag_config,
-                "Verdetto Atteso": verdetto_atteso,
-                "Verdetto LLM": verdetto_final,
-                "Esito Auditing": esito_metrica,
-                "Report_MD": report_md,
-                "Telemetria": meta,
-                "Ground Truth DB": ground_truth_db,
-                "Tempo Totale (s)": round(tempo_totale, 2)
-            }
-            
-            print(f" -> Categoria Applicata: {cat_tag_config}")
-            print(f" -> Verdetto LLM       : {verdetto_final}")
-            print(f" -> Ground Truth       : {ground_truth_db}")
-            print(f" -> Verdetto Atteso    : {verdetto_atteso}")
-            print(f" -> Esito              : {esito_metrica}")
+            with open(output_filename, "w", encoding="utf-8") as f_out:
+                json.dump(risultati, f_out, indent=2, ensure_ascii=False)
 
-            risultati.append(esito)
-
-        except (asyncio.CancelledError, KeyboardInterrupt):
-            sys.stdout = original_stdout
-            print(f"\n[CHIAMANTE]: Task annullato/interrotto dall'utente durante lo scenario {sc['id']}.")
-            raise
-        except Exception as e:
-            sys.stdout = original_stdout
-            cli_log = tee.get_log() + f"\nEccezione sollevata: {traceback.format_exc()}"
-
-            print(f"Errore durante lo scenario {sc['id']}: {e}")
-            stats["NON_PARSABILE"] += 1
-
-            utils.salva_risultati_su_disco(
-                ip_target=sc["ip_target"],
-                categoria=f"{cat_tag_config}_ERROR",
-                report_md="[ERRORE DURANTE L'ESECUZIONE]",
-                log_txt=cli_log,
-                telemetria_txt="--- TELEMETRIA ESECUZIONE ---\nERRORE",
-                start_time=dt_start,
-                end_time=dt_end
+            print(f"\nBenchmark completato/interrotto. Dataset salvato in '{output_filename}'")
+            utils.stampa_e_salva_metriche(
+                stats, cartella_sessione, ts_sessione, model_name
             )
 
-            esito = {
-                "ID": sc["id"],
-                "ip_target": sc["ip_target"],
-                "start_time": sc["start_time"],
-                "end_time": sc["end_time"],
-                "Categoria": cat_tag_config,
-                "Verdetto Atteso": verdetto_atteso,
-                "Verdetto LLM": "ERRORE",
-                "Esito Auditing": "NON_PARSABILE",
-                "Report_MD": "[ERRORE DURANTE L'ESECUZIONE]",
-                "Telemetria": {},
-                "Ground Truth DB": {},
-                "Tempo Totale (s)": 0
-            }
-            
-            risultati.append(esito)
-
-    output_dir = Path("benchmark_results")
-    output_dir.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = output_dir / f"benchmark_{model_name.replace(':', '_')}_{timestamp}.json"
-
-    # Salva il dataset aggregato
-    with open(output_filename, "w", encoding="utf-8") as f_out:
-        json.dump(risultati, f_out, indent=2, ensure_ascii=False)
-
-    print(f"\nBenchmark completato! Dataset salvato in '{output_filename}'")
-    utils.stampa_e_salva_metriche(stats, output_dir, timestamp, model_name)
-
-    await client_openai.close()
+        try:
+            await client_openai.close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     try:
