@@ -1,4 +1,27 @@
-import re
+"""
+utils.py — Funzioni di utilità generiche condivise tra client.py e
+test_suite.py: validazione input da riga di comando, selezione del modello
+LLM, persistenza dei risultati su disco e calcolo delle metriche di auditing
+del benchmark.
+
+COSA FA:
+- Validazione: valida_indirizzo_ip, valida_formato_timestamp.
+- Configurazione runtime: seleziona_modello_engine — menu CLI per scegliere
+  provider/modello LLM (Groq GPT-OSS o Interhost Qwen) leggendo le chiavi
+  API da .env.
+- Persistenza: salva_risultati_su_disco scrive report (.md) e log (.txt) di
+  una singola analisi nella cartella di sessione corrente.
+- Auditing: controlla_ground_truth interroga la tabella cic_flows per la
+  verità di terreno reale; calcola_esito_classificazione confronta il
+  verdetto dell'LLM con quello atteso (TP/FP/TN/FN); stampa_e_salva_metriche
+  calcola e salva accuracy/precision/recall/F1 del benchmark.
+
+DA CHI VIENE CHIAMATO:
+- Da client.py (validazione input menu, salvataggio risultato singolo) e da
+  test_suite.py (selezione modello, ground truth, metriche aggregate).
+"""
+import os
+import sys
 import json
 import datetime  
 import ipaddress
@@ -15,7 +38,6 @@ load_dotenv()
 # PARSING E VALIDAZIONE DELL'INPUT
 # ==============================================================================
 
-# 1 client.py (main), 1 test_suite.py
 def valida_indirizzo_ip(ip_str: str) -> bool:
     """Verifica se la stringa fornita rappresenta un indirizzo IP valido."""
     try:
@@ -24,9 +46,10 @@ def valida_indirizzo_ip(ip_str: str) -> bool:
     except ValueError:
         return False
 
-# 2 client.py (main), 2 test_suite.py
-def valida_formato_timestamp(ts_str: str) -> Optional[datetime.datetime]:
-    """Valida e converte le stringhe di timestamp accettando vari sottosecondi/spazi."""
+def valida_formato_timestamp(ts_str: str, minuti_anticipo: int = 0) -> Optional[datetime.datetime]:
+    """Valida e converte le stringhe di timestamp accettando vari sottosecondi/spazi.
+    Se minuti_anticipo > 0, sottrae i minuti specificati al datetime risultante.
+    """
     formati = [
         "%Y-%m-%d %H:%M:%S.%f",
         "%Y-%m-%d %H:%M:%S",
@@ -36,30 +59,78 @@ def valida_formato_timestamp(ts_str: str) -> Optional[datetime.datetime]:
     ts_clean = ts_str.strip()
     for fmt in formati:
         try:
-            return datetime.datetime.strptime(ts_clean, fmt)
+            dt = datetime.datetime.strptime(ts_clean, fmt)
+            if minuti_anticipo > 0:
+                dt -= datetime.timedelta(minutes=minuti_anticipo)
+            return dt
         except ValueError:
             continue
     return None
 
-# ==============================================================================
-# PERSISTENZA E FORMATTAZIONE REPORT
-# ==============================================================================
 
-# 2 salva_risultati_su_disco
-def formatta_ts_filename(val: Union[str, datetime.datetime]) -> str:
-    """Formatta un oggetto datetime o una stringa timestamp per l'uso nei nomi dei file."""
-    if isinstance(val, datetime.datetime):
-        return val.strftime("%Y%m%d_%H%M%S")
-    elif isinstance(val, str):
-        val_clean = val.split(".")[0]
-        try:
-            dt = datetime.datetime.strptime(val_clean, "%Y-%m-%d %H:%M:%S")
-            return dt.strftime("%Y%m%d_%H%M%S")
-        except ValueError:
-            return val.replace("-", "").replace(":", "").replace(" ", "_")
-    return str(val)
+def seleziona_modello_engine():
+    """Carica le variabili di ambiente e gestisce il menu di selezione del modello."""
+    while True:
+        print("============================================================")
+        print("CONFIGURAZIONE INIZIALE MODELLO PER BENCHMARK")
+        print(
+            f"1) GPT-OSS 120B (Groq / Remote)     [Context Limit: {config.Soglie.TOOL_CONTEXT_CHAR_LIMIT} char/tool]"
+        )
+        print(
+            f"2) Qwen 3.6 27B (Server Interhost)  [Context Limit: {config.Soglie.TOOL_CONTEXT_CHAR_LIMIT} char/tool]"
+        )
+        print("3) Esci dal programma")
+        print("============================================================")
 
-# 2 test_suite.py, 1 client.py (main)
+        max_tool_chars = config.Soglie.TOOL_CONTEXT_CHAR_LIMIT
+
+        print("\nScegli il modello engine (default: 2): ")
+        scelta = input("").strip() or "2"
+        
+        if scelta == "3":
+            print("\nUscita dal programma.")
+            sys.exit(0)
+
+        elif scelta == "1":
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                print(
+                    "[ERRORE]: Chiave GROQ_API_KEY non trovata nel file .env"
+                )
+                sys.exit(1)
+
+            base_url = os.getenv(
+                "GROQ_BASE_URL", "https://api.groq.com/openai/v1"
+            )
+            model_name = os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b")
+
+            print(
+                f"\n[OK] Caricato Groq -> Modello: {model_name} | Endpoint: {base_url}"
+            )
+            return api_key, base_url, model_name, max_tool_chars
+
+        elif scelta == "2":
+            api_key = os.getenv("INTERHOST_API_KEY", "ntopng_mcp_test")
+            base_url = os.getenv(
+                "INTERHOST_BASE_URL", "https://aitest.interhost.it/v1"
+            )
+            model_name = os.getenv("INTERHOST_MODEL_NAME", "Qwen3.6-27B")
+
+
+            if not api_key:
+                print(
+                    "[ERRORE]: Chiave INTERHOST_API_KEY non trovata nel file .env"
+                )
+                sys.exit(1)
+
+            print(
+                f"\n[OK] Caricato Interhost -> Modello: {model_name} | Endpoint: {base_url}"
+            )
+            return api_key, base_url, model_name, max_tool_chars
+
+        else:
+            print("\n[ERRORE]: Opzione non valida. Inserisci 1, 2 o 3.\n")
+
 def salva_risultati_su_disco(
     ip_target: str,
     categoria: str,
@@ -67,27 +138,53 @@ def salva_risultati_su_disco(
     log_txt: str,
     telemetria_txt: str,
     start_time: Union[str, datetime.datetime],
-    end_time: Union[str, datetime.datetime]
+    end_time: Union[str, datetime.datetime],
+    cartella_sessione: Path,  
 ) -> Tuple[str, str]:
-    """
-    Salva i report e i log su file localizzati nella cartella 'outputs'.
-    Formato nome file: (REPORT||LOG)_<IP>_<START>_<END>_gen_<NOW>_<CAT>.(md||txt)
-    """
-    cartella_output = Path("outputs")
-    cartella_output.mkdir(exist_ok=True)
+    """Salva i report e i log all'interno delle sottocartelle 'reports' e 'logs' della sessione corrente."""
+    def formatta_ts_filename(val: Union[str, datetime.datetime]) -> str:
+        """Formatta un oggetto datetime o una stringa timestamp per l'uso nei nomi dei file."""
+        if isinstance(val, datetime.datetime):
+            return val.strftime("%Y%m%d_%H%M%S")
+        elif isinstance(val, str):
+            val_clean = val.split(".")[0]
+            try:
+                dt = datetime.datetime.strptime(val_clean, "%Y-%m-%d %H:%M:%S")
+                return dt.strftime("%Y%m%d_%H%M%S")
+            except ValueError:
+                return val.replace("-", "").replace(":", "").replace(" ", "_")
+        return str(val)
+
+    ts_now_fn = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Sottocartelle dedicate dentro la cartella di sessione
+    cartella_report = cartella_sessione / "reports"
+    cartella_log = cartella_sessione / "logs"
+
+    cartella_report.mkdir(parents=True, exist_ok=True)
+    cartella_log.mkdir(parents=True, exist_ok=True)
 
     ts_start_fn = formatta_ts_filename(start_time)
     ts_end_fn = formatta_ts_filename(end_time)
-
-    ts_now_fn = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     sanitized_ip = ip_target.replace(".", "_")
 
-    nome_base = f"{sanitized_ip}_{ts_start_fn}_{ts_end_fn}_gen_{ts_now_fn}_{categoria}"
-    filepath_report = cartella_output / f"REPORT_{nome_base}.md"
-    filepath_log = cartella_output / f"LOG_{nome_base}.txt"
+    nome_base = (
+        f"{sanitized_ip}_{ts_start_fn}_{ts_end_fn}_gen_{ts_now_fn}_{categoria}"
+    )
 
-    str_start_sql = start_time.strftime("%Y-%m-%d %H:%M:%S") if isinstance(start_time, datetime.datetime) else str(start_time)
-    str_end_sql = end_time.strftime("%Y-%m-%d %H:%M:%S") if isinstance(end_time, datetime.datetime) else str(end_time)
+    filepath_report = cartella_report / f"REPORT_{nome_base}.md"
+    filepath_log = cartella_log / f"LOG_{nome_base}.txt"
+
+    str_start_sql = (
+        start_time.strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(start_time, datetime.datetime)
+        else str(start_time)
+    )
+    str_end_sql = (
+        end_time.strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(end_time, datetime.datetime)
+        else str(end_time)
+    )
     str_now_sql = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     header_md = (
@@ -110,65 +207,9 @@ def salva_risultati_su_disco(
     return str(filepath_report), str(filepath_log)
 
 # ==============================================================================
-# PARSING DEL VERDETTO DELL'LLM
-# ==============================================================================
-
-# 1 esegui_analisi_mcp, 1 test_suite.py
-def estrai_verdetto_pulito(*args) -> str:
-    """
-    Estrae il verdetto finale analizzando la riga 'VERDETTO:' nel report generato.
-    """
-    # Individua il testo valido da analizzare partendo dall'ultimo argomento non nullo
-    report_md = ""
-    for arg in reversed(args):
-        if arg and isinstance(arg, str) and str(arg).strip() not in ["None", "-", ""]:
-            report_md = str(arg)
-            break
-
-    if not report_md or not report_md.strip():
-        return "NON_IDENTIFICATO"
-
-    testo = report_md.strip()
-
-    # Parsing prioritario sulla riga 'VERDETTO:' (cerca dal basso)
-    lines = testo.split('\n')
-    for line in reversed(lines):
-        line_clean = line.strip()
-        if line_clean.startswith("VERDETTO:"):
-            v_cand = line_clean.split("VERDETTO:")[1].strip().strip('`\'"*').upper()
-            
-            if hasattr(config, "VERDETTI_AMMESSI") and v_cand in config.VERDETTI_AMMESSI:
-                return v_cand
-            
-            if "BENIGN" in v_cand: return "BENIGN"
-            if "BEACON" in v_cand or "C2" in v_cand: return "BEACONING_C2"
-            if "BRUTE" in v_cand or "SCAN" in v_cand: return "SCAN_BRUTEFORCE"
-            if "DOS" in v_cand: return "DOS_VOLUMETRIC"
-            if "WEB" in v_cand or "EXPLOIT" in v_cand: return "WEB_ATTACK_EXPLOIT"
-
-    # Fallback su Regex per formato "VERDETTO: VALORE" o "CLASSIFICAZIONE FINALE: VALORE"
-    pattern = r"(?:VERDETTO|CLASSIFICAZIONE FINALE)\s*[:=]\s*[`'\"]*([A-Z0-9\-_]+)[`'\"]*"
-    matches = re.findall(pattern, testo, re.IGNORECASE)
-
-    if matches:
-        v_candidate = matches[-1].strip().upper()
-        if hasattr(config, "VERDETTI_AMMESSI") and v_candidate in config.VERDETTI_AMMESSI:
-            return v_candidate
-
-    # Fallback per keyword isolate nel testo
-    testo_upper = testo.upper()
-    if hasattr(config, "VERDETTI_AMMESSI"):
-        for verdetto in config.VERDETTI_AMMESSI:
-            if re.search(rf"\b{re.escape(verdetto)}\b", testo_upper):
-                return verdetto
-
-    return "NON_IDENTIFICATO"
-
-# ==============================================================================
 # GROUND TRUTH ED AUDITING BENCHMARK
 # ==============================================================================
 
-# 1 test_suite.py
 def controlla_ground_truth(
     ip_target: str, 
     start_time: Union[str, datetime.datetime], 
@@ -204,58 +245,110 @@ def controlla_ground_truth(
         
     return risultati_db
 
-# 1 test_suite.py
 def calcola_esito_classificazione(
-    verdetto_llm: str, 
-    ground_truth_db: Dict[str, int], 
-    verdetto_atteso: Optional[str] = None
+    verdetto_llm: str,
+    ground_truth_db: Dict[str, int],
+    verdetto_atteso: Optional[str] = None,
 ) -> str:
-    
+
     verdetto_upper = str(verdetto_llm).strip().upper() if verdetto_llm else ""
 
     MAPPING_MALEVOLI = {
-        "DOS_VOLUMETRIC": ["DOS_VOLUMETRIC", "DOS", "DDOS", "ANOMALIA_VOLUMETRICA", "HULK", "GOLDENEYE", "SLOWLORIS", "SLOWHTTPTEST"],
-        "BEACONING_C2": ["BEACONING_C2", "BEACON", "BOTNET", "C2", "BOT", "INFILTRATION"],
-        "BRUTE_FORCE": ["BRUTE_FORCE", "BRUTEFORCE", "BRUTE", "FTP-PATATOR", "SSH-PATATOR", "PASSWORD_GUESSING"],
-        "PORT_SCAN": ["PORT_SCAN", "PORTSCAN", "SCAN", "RECONNAISSANCE"],
-        "WEB_ATTACK_EXPLOIT": ["WEB_ATTACK_EXPLOIT", "WEB_ATTACK", "WEB", "EXPLOIT", "SQLI", "XSS", "HEARTBLEED", "INJECTION"]
+        "DOS_VOLUMETRIC": {
+            "DOS_VOLUMETRIC",
+            "DOS",
+            "DDOS",
+            "ANOMALIA_VOLUMETRICA",
+            "HULK",
+            "GOLDENEYE",
+            "SLOWLORIS",
+            "SLOWHTTPTEST",
+        },
+        "BEACONING_C2": {
+            "BEACONING_C2",
+            "BEACON",
+            "BOTNET",
+            "C2",
+            "BOT",
+            "INFILTRATION",
+        },
+        "SCAN_BRUTEFORCE": {
+            "SCAN_BRUTEFORCE",
+            "PORT_SCAN",
+            "PORTSCAN",
+            "SCAN",
+            "RECONNAISSANCE",
+            "BRUTE_FORCE",
+            "BRUTEFORCE",
+            "BRUTE",
+            "FTP-PATATOR",
+            "SSH-PATATOR",
+            "PASSWORD_GUESSING",
+        },
+        "WEB_ATTACK_EXPLOIT": {
+            "WEB_ATTACK_EXPLOIT",
+            "WEB_ATTACK",
+            "WEB",
+            "EXPLOIT",
+            "SQLI",
+            "XSS",
+            "HEARTBLEED",
+            "INJECTION",
+        },
     }
 
     # Valutazione presenza di minacce reali nella GT del DB
-    classi_gt_db = {str(k).encode("ascii", "ignore").decode().strip().upper(): v for k, v in ground_truth_db.items()}
-    minacce_db = {k: v for k, v in classi_gt_db.items() if not any(b in k for b in ["BENIGN", "TRAFFICO_BENIGNO"]) and v > 0}
+    classi_gt_db = {
+        str(k).encode("ascii", "ignore").decode().strip().upper(): v
+        for k, v in ground_truth_db.items()
+    }
+    minacce_db = {
+        k: v
+        for k, v in classi_gt_db.items()
+        if not any(b in k for b in ["BENIGN", "TRAFFICO_BENIGNO"]) and v > 0
+    }
     ha_attacchi_reali = len(minacce_db) > 0
 
-    # Gestione esplicita di "NON_IDENTIFICATO" o stringhe vuote
-    if not verdetto_upper or verdetto_upper in ["NON_IDENTIFICATO", "ERRORE"]:
+    if not verdetto_upper or verdetto_upper in [
+        "NON_IDENTIFICATO",
+        "ERRORE",
+        "UNRESOLVED",
+    ]:
         return "FN" if ha_attacchi_reali else "TN"
 
-    # Determina la macro-categoria predetta dall'LLM
-    categoria_llm = "BENIGN" if verdetto_upper in ["BENIGN", "BENIGNO"] else None
-    if not categoria_llm:
+    # Estrazione categoria predetta dall'LLM
+    categoria_llm = None
+    if verdetto_upper in ["BENIGN", "BENIGNO", "TRAFFICO_BENIGNO"]:
+        categoria_llm = "BENIGN"
+    else:
         for cat_std, keywords in MAPPING_MALEVOLI.items():
             if any(kw in verdetto_upper for kw in keywords):
                 categoria_llm = cat_std
                 break
 
-    # Se la risposta non corrisponde a nessuna etichetta nota
     if not categoria_llm:
         return "NON_PARSABILE"
 
     # Valutazione su Verdetto Atteso (JSON Ground Truth)
-    if verdetto_atteso and str(verdetto_atteso).strip().upper() not in ["SCONOSCIUTO", "NONE"]:
+    if verdetto_atteso and str(verdetto_atteso).strip().upper() not in [
+        "SCONOSCIUTO",
+        "NONE",
+        "",
+    ]:
         atteso_upper = str(verdetto_atteso).strip().upper()
-        categoria_attesa = "BENIGN" if atteso_upper in ["BENIGN", "BENIGNO", "TRAFFICO_BENIGNO"] else None
-        
-        if not categoria_attesa:
+        categoria_attesa = None
+
+        if atteso_upper in ["BENIGN", "BENIGNO", "TRAFFICO_BENIGNO"]:
+            categoria_attesa = "BENIGN"
+        else:
             for cat_std, keywords in MAPPING_MALEVOLI.items():
                 if any(kw in atteso_upper for kw in keywords):
                     categoria_attesa = cat_std
                     break
 
-        if categoria_llm == categoria_attesa:
+        if categoria_attesa and categoria_llm == categoria_attesa:
             return "TN" if categoria_llm == "BENIGN" else "TP"
-        else:
+        elif categoria_attesa:
             if categoria_attesa == "BENIGN" and categoria_llm != "BENIGN":
                 return "FP"
             elif categoria_attesa != "BENIGN" and categoria_llm == "BENIGN":
@@ -269,14 +362,13 @@ def calcola_esito_classificazione(
     if not ha_attacchi_reali:
         return "FP"
 
-    keywords_llm = MAPPING_MALEVOLI.get(categoria_llm, [])
+    keywords_llm = MAPPING_MALEVOLI.get(categoria_llm, set())
     for label_db in minacce_db.keys():
         if any(kw in label_db for kw in keywords_llm):
             return "TP"
 
     return f"FP_MISMATCH_{categoria_llm}"
 
-# 1 test_suite.py
 def stampa_e_salva_metriche(stats: Dict[str, int], output_dir: Path, timestamp: str, model_name: str) -> None:
     """
     Calcola le metriche del benchmark, le stampa a schermo e le salva su disco sia in formato JSON sia in TXT.
@@ -286,7 +378,6 @@ def stampa_e_salva_metriche(stats: Dict[str, int], output_dir: Path, timestamp: 
     fn = stats.get("FN", 0)
     non_parsa = stats.get("NON_PARSABILE", 0)
 
-    # Calcola i mismatch totali
     fp_mismatch_totali = sum(v for k, v in stats.items() if k.startswith("FP_MISMATCH"))
     
     # Aggrega i False Positive: i falsi allarmi puri + le minacce classificate con la categoria sbagliata
@@ -348,4 +439,4 @@ def stampa_e_salva_metriche(stats: Dict[str, int], output_dir: Path, timestamp: 
     with open(txt_summary_path, "w", encoding="utf-8") as f_txt:
         f_txt.write(recap_txt)
 
-    print(f"Metriche e Matrice salvate in:\n  -> {json_summary_path}\n  -> {txt_summary_path}")
+    print(f"Metriche e Matrice salvate in:\n  -> {json_summary_path}\n  -> {txt_summary_path}\n")
