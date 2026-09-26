@@ -38,9 +38,9 @@ class Soglie:
         636,   # LDAPS
         3268,  # Global Catalog
         3269,  # Global Catalog SSL (ex 326)
-        326,
+        326,    # Non piu' in uso ma visto che analiziamo dati del 2017 le teniamo
         5353,   # mDNS (ex 53539)
-        53539
+        53539   # Non piu' in uso ma visto che analiziamo dati del 2017 le teniamo
     }
     PORTE_ORDINARIE_WEB_DNS = PORTE_WEB_L7.union(PORTE_DNS)
     PORTE_GESTIONE = {21, 22, 23, 3389, 5900, 2222}
@@ -48,11 +48,16 @@ class Soglie:
     PORTE_ORDINARIE_WEB = PORTE_WEB_L7
 
     # BEACONING / C2
+    BEACON_MIN_CONNESSIONI = 12
+    ANOMALY_SCORE_C2_MIN = 65
+
     CV_BEACON_STRICT = 0.15
     CV_BEACON_UPPER_JITTER = 1.2
     CV_BEACON_JITTER_MAX = 0.60  
-    BEACON_MIN_CONNESSIONI = 15  
-    ANOMALY_SCORE_C2_MIN = 70
+    BEACON_MIN_CONNESSIONI_CANDIDATO = 8   # per comparire nell'output
+    BEACON_MIN_CONNESSIONI_PORTA_C2 = 8    # porte 8080/8443/444/1080 verso IP esterno
+    PORTE_C2_SOSPETTE = {8080, 8443, 444, 1080}
+    DOS_EFFIMERE_FRAZIONE_INFRA_MAX = 0.5   # se >= 50% dei flussi va su porte infrastrutturali LAN, non è flood
     BEACON_TOP_N_DEFAULT = 10
     BEACON_DOS_VOLUME_THRESHOLD = 200
 
@@ -62,9 +67,10 @@ class Soglie:
     SCORE_MAX = 100
 
     # SCAN / BRUTEFORCE
-    SCAN_PORTE_MIN = 15  
+    SCAN_PORTE_MIN = 12
+    BRUTEFORCE_TENTATIVI_MIN = 20
+
     EPHEMERAL_SCAN_MIN_PORTS = 25
-    BRUTEFORCE_TENTATIVI_MIN = 25
     SCAN_IP_SWEEP_MIN_NONWEB = 10
     SCAN_AGGRESSIVE_PPS_MIN = 100.0
     SCAN_PROBE_MAX_PACCHETTI = 4
@@ -72,15 +78,17 @@ class Soglie:
     ANOMALY_SCORE_CANDIDATO_MIN = 50  # soglia più bassa: basta per aprire un'indagine, non per confermare C2
 
     # DOS VOLUMETRICO & SLOWLORIS 
+    DOS_PPS_MIN = 2000.0
+    DOS_PPS_MIN_FALLBACK = 700.0
+    DOS_L7_RPS_MIN = 7.0
+    DOS_L7_FLUSSI_ASSOLUTI_MIN = 700
+
     DOS_VOLUME_MASSIVO_MIN = 1000.0 
     MS_IN_SEC = 1000.0
-    DOS_PPS_MIN = 3000.0
     DOS_L7_FLUSSI_MIN = 50
-    DOS_L7_RPS_MIN = 10.0
     SLOWLORIS_FLUSSI_MIN = 50
     SLOWLORIS_DURATION_MS = 60000
     SLOWLORIS_MAX_BYTES = 1000
-    DOS_PPS_MIN_FALLBACK = 1000.0
     SLOWLORIS_FLUSSI_MIN_FALLBACK = 50
     CONCENTRAZIONE_DOS_MIN = 25.0   # flussi/destinazione minimi per parlare di flood concentrato
     RATIO_PORTE_EFFIMERE_MIN = 0.70
@@ -91,11 +99,16 @@ class Soglie:
     DOS_L7_PKT_PER_FLOW_MIN = 30.0
     DOS_FORZA_SATURAZIONE_L7 = 1.6
     DOS_FORZA_DISPERSIONE_ESTREMA = 1.1
-    DOS_DISPERSIONE_FLUSSI_MIN = 500  # ben oltre il volume tipico di bruteforce/beaconing/polling ripetuto
+    DOS_DISPERSIONE_FLUSSI_MIN = 150 
     DOS_EFFIMERE_DESTINAZIONI_MAX = 10  # oltre questo numero di destinazioni web distinte, la dispersione di porte è fan-out di browsing, non DoS
     DC_FRAZIONE_INFRA_MIN = 0.5  # un vero domain controller tocca prevalentemente porte infrastrutturali
     
+
     # WEB ATTACK & EXFILTRATION 
+    WEBBF_MIN_RICHIESTE = 25
+    WEBBF_TARGET_MAX = 4
+    WEBBF_HTTP_REQ_RATE_MIN_CORROBORAZIONE = 0.1
+
     WEBATTACK_MIN_RICHIESTE_BREVI = 15
     WEBATTACK_SCORE_SATURATION = 5
     WEBATTACK_MAX_BYTES = 2000
@@ -135,7 +148,7 @@ class Soglie:
     TRONCAMENTO_TOOL_RAW_MAX = 1500
     TRONCAMENTO_FIELD_MAX_CHARS = 150
     TRONCAMENTO_LINEE_VECCHIE = 20
-    TOOL_DESC_MAX_CHARS = 300
+    TOOL_DESC_MAX_CHARS = 2500
     REPORT_CONTEXT_MAX_CHARS_GPT_OSS = 3000
     REPORT_CONTEXT_MAX_CHARS_DEFAULT = 6000
     TOOL_CONTEXT_CHAR_LIMIT = 1000
@@ -145,6 +158,12 @@ class Soglie:
     SWEEP_CONCENTRAZIONE_MAX = 0.70     # se una porta domina oltre il 70% dei flussi, non è uno sweep
     SWEEP_FLUSSI_MIN_ASSOLUTI = 50   # sotto questo volume totale, 4 porte è rumore, non uno sweep
     SWEEP_DESTINAZIONI_MAX = 15 
+
+PROVIDER_REPUTATI = {
+    "google", "cloudflare", "akamai", "microsoft", "amazon", "aws", "fastly",
+    "edgecast", "cloudfront", "canonical", "ubuntu", "apple", "mozilla",
+}
+CAT_ATTACCO = {"WEB_ATTACK_EXPLOIT", "DOS_VOLUMETRIC", "SCAN_BRUTEFORCE", "BEACONING_C2"}
 
 # ------------------------------------------------------------------------------
 # TOOL OBBLIGATORI
