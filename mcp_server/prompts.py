@@ -36,7 +36,7 @@ VerdettoEnum = Literal[
 VERDETTI_AMMESSI = get_args(VerdettoEnum)
 _verdetti_str = ", ".join(VERDETTI_AMMESSI)
 
-_s = config.Soglie  # alias corto, usato ovunque sotto per interpolare soglie reali
+_s = config.Soglie  # Alias corto, usato ovunque sotto per interpolare soglie reali
 
 # ---------------------------------------------------------------------------
 # DIRETTIVA SUL VERDETTO E TRATTAMENTO DI compute_verdict_scores
@@ -65,37 +65,33 @@ TOOL_VERDETTO_FINALE_FORZATO = {
     },
 }
 
-DIVIETO_BENIGN_CON_ANOMALIE = """
---- DIVIETO DI ASSEGNARE BENIGN IN PRESENZA DI ANOMALIE STRUTTURATE NON RISOLTE ---
-Se ALMENO UNA di queste condizioni è vera, il verdetto BENIGN è TASSATIVAMENTE VIETATO
-nel tuo Thought di Stage 1, ANCHE SE ritieni che si tratti di un falso positivo (es.
-traffico VPN, CDN, backup legittimo):
+DIVIETO_BENIGN_CON_ANOMALIE = f"""
+DIVIETO DI ASSEGNARE BENIGN QUANDO L'EURISTICA INDICA UNA MINACCIA
+Se 'compute_verdict_scores' assegna ALMENO UNA categoria con score >= 0.5, OPPURE riporta
+un conflitto a pari merito, il verdetto BENIGN è VIETATO, salvo la deroga descritta sotto.
 
-- 'compute_verdict_scores' assegna ALMENO UNA categoria con score >= 0.5;
-- OPPURE 'get_host_port_distribution' riporta 'sospetto_portscan: true' o
-  'sospetto_bruteforce: true';
-- OPPURE 'search_http_l7_anomalies' riporta 'sospetto_web_bruteforce: true' o
-  'anomalie_l7_trovate > 0';
-- OPPURE 'detect_beaconing' riporta 'beaconing_c2_rilevato: true'.
+DEROGA PER FALSO POSITIVO DOCUMENTATO: puoi concludere BENIGN con uno score >= 0.5 SOLO SE
+sono vere TUTTE queste condizioni:
+(a) lo score alto deriva solo da euristiche morbide (conteggio di richieste concentrate,
+    jitter dei tempi, dispersione di porte sorgente) e NON esiste nessuna evidenza dura
+    negli output dei tool: anomalie L7/entropia, endpoint di login, PPS >= {_s.DOS_PPS_MIN_FALLBACK},
+    >= {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi web o RPS >= {_s.DOS_L7_RPS_MIN:.0f}, Slowloris confermato,
+    scan/bruteforce L4 confermato, tag CONFIRMED_BEACONING_C2;
+(b) nella motivazione citi un hostname o provider legittimo effettivamente presente negli
+    output dei tool (non dedotto);
+(c) spieghi quali metriche grezze smentiscono lo score (numeri e soglie).
+Se anche una sola condizione manca, non scegliere BENIGN: assegna la categoria con lo score
+più alto in compute_verdict_scores e spiega ESPLICITAMENTE nella motivazione perché sospetti
+un falso positivo (nome del servizio, hostname, concentrazione su destinazione nota, ecc.).
 
-ECCEZIONE OBBLIGATORIA — SEGNALE GIÀ RISOLTO DA compute_verdict_scores: se hai già
-eseguito 'compute_verdict_scores' e questo restituisce TUTTI gli score a 0.0, quel
-risultato è l'ultima parola sui segnali grezzi che ha già consumato (incluso
-'stato_anomalia: ANOMALIA_RILEVATA' o diagnosi 'CRITICO' di get_rate_statistics, che
-compute_verdict_scores rilegge e ripesa internamente). In questo caso il flag grezzo
-NON è un motivo indipendente per vietare BENIGN: puoi assegnare BENIGN, spiegando nella
-motivazione perché il flag preliminare era un falso positivo che compute_verdict_scores
-ha già correttamente azzerato. Questa eccezione vale SOLO per il flag di
-get_rate_statistics/get_traffic_summary; le condizioni con flag booleani espliciti
-elencate sopra (portscan, bruteforce, web bruteforce, beaconing) restano vincolanti
-anche con score a 0.0, perché sono segnali strutturati che compute_verdict_scores può
-depotenziare ma il flag stesso indica comunque un pattern osservato da verificare.
+Se invece TUTTI gli score di compute_verdict_scores sono < 0.5 e non c'è conflitto, i flag
+grezzi degli altri tool (es. 'stato_anomalia', 'sospetto_portscan', 'sospetto_web_bruteforce')
+sono già stati riletti e respinti dal tool: BENIGN è ammesso.
 
-In tutti gli altri casi in cui il divieto si applica, hai due strade:
-1) Se ritieni che l'anomalia sia reale, assegna la categoria di attacco corrispondente.
-2) Se ritieni che sia un falso positivo, NON scegliere comunque BENIGN in questa fase:
-   assegna la categoria di attacco indicata dal segnale più forte rilevato, e spiega
-   ESPLICITAMENTE nella motivazione perché sospetti si tratti di un falso positivo.
+IMPORTANTE: la DEROGA AMMESSA descritta al punto 2b della sezione DOS_VOLUMETRIC (traffico
+VPN/CDN/backup) ti autorizza a scartare l'ipotesi DOS_VOLUMETRIC in favore di un'altra
+categoria o di un sospetto di falso positivo MOTIVATO. Per concludere BENIGN con uno score
+>= 0.5 resta comunque necessaria la deroga per falso positivo documentato qui sopra.
 """
 
 DIRETTIVA_VERDETTO_TEXT = f"""
@@ -110,12 +106,15 @@ Per questo motivo il punteggio va SEMPRE incrociato con le evidenze grezze (i si
 COME USARE LO SCORE, IN PRATICA:
 1. Usa 'compute_verdict_scores' come PRIMO INDIZIO forte per orientare l'indagine, non come conclusione automatica da copiare nel report.
 2. Prima di confermare il verdetto suggerito, verifica che almeno UNA evidenza grezza indipendente lo confermi (es. se lo score indica BEACONING_C2, controlla che 'detect_beaconing' mostri davvero CV basso E un numero di connessioni sopra {_s.BEACON_MIN_CONNESSIONI}, non solo uno score alto isolato).
-3. Se lo score e le evidenze grezze SONO IN CONTRASTO (es. score 0.0 ma 'get_rate_statistics' o 'get_flow_features' segnalano anomalia critica/flood/Slowloris), NON scartare la discrepanza: motivala esplicitamente nel campo "motivazione" del report finale, spiegando perché hai deciso di correggere il suggerimento del tool.
+3. Se lo score e le evidenze grezze sono in contrasto, motiva esplicitamente nel campo
+   "motivazione" perché confermi lo score o perché lo correggi con un'evidenza specifica
+   (numeri, porte, IP). Se tutti gli score sono < 0.5 e non c'è conflitto, i flag grezzi
+   sono già stati riletti dal tool.
 4. Non è mai lecito scrivere una motivazione che si limiti a ripetere il numero dello score senza descrivere il fenomeno di rete sottostante (porte coinvolte, IP, volumi, periodicità).
 
 SHORT-CIRCUIT E REGOLE DI CHIUSURA:
 - Se 'compute_verdict_scores' restituisce uno score >= 0.95 per qualsiasi categoria (es. WEB_ATTACK_EXPLOIT o DOS_VOLUMETRIC), consideralo come un SEGNALE FORTE DI CHIUSURA.
-- In presenza di uno score >= 0.80/0.95 per WEB_ATTACK_EXPLOIT corroborated da 'sospetto_web_bruteforce: true' e flussi < 1.000, NON cercare eccezioni o cavilli nei pochi campioni L7 per smentire il tool: il verdetto TASSATIVO è WEB_ATTACK_EXPLOIT.
+- In presenza di uno score >= 0.80/0.95 per WEB_ATTACK_EXPLOIT corroborated da 'sospetto_web_bruteforce: true' e flussi < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN}, NON cercare eccezioni o cavilli nei pochi campioni L7 per smentire il tool: il verdetto TASSATIVO è WEB_ATTACK_EXPLOIT.
 - Se 'compute_verdict_scores' restituisce 'override_tassativo: true' nel campo del
   conflitto a pari merito, il verdetto in 'verdetto_suggerito_euristica' NON è
   discutibile: le evidenze grezze hanno un margine schiacciante (>= 2x) sul secondo
@@ -125,9 +124,10 @@ SHORT-CIRCUIT E REGOLE DI CHIUSURA:
 
 === REGOLE TASSATIVE DI DISAMBIGUAZIONE E GERARCHIA VERDETTI ===
 
-1. WEB_ATTACK_EXPLOIT (PRIORITÀ SU TRAFFICO WEB A BASSO/MEDIO VOLUME < 1.000 FLUSSI):
-   - 'WEB_ATTACK_EXPLOIT' si applica quando le richieste Web sono a basso/medio volume (< 1.000 tentativi totali e in assenza di allarmi flood/saturazione in get_rate_statistics), mirate ad autenticazione (/login, /admin) per Brute Force, oppure quando vengono identificati payload applicativi malevoli reali (SQLi, XSS, Path Traversal, Command Injection).
-   - Se 'search_http_l7_anomalies' imposta 'sospetto_web_bruteforce = true' E il volume di richieste è < 1.000, il verdetto è WEB_ATTACK_EXPLOIT.
+1. WEB_ATTACK_EXPLOIT (PRIORITÀ SU TRAFFICO WEB A BASSO/MEDIO VOLUME < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} FLUSSI):
+   - 'WEB_ATTACK_EXPLOIT' si applica quando le richieste Web sono a basso/medio volume (< {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} tentativi totali e in assenza di allarmi flood/saturazione in get_rate_statistics), mirate ad autenticazione (/login, /admin) per Brute Force, oppure quando vengono identificati payload applicativi malevoli reali (SQLi, XSS, Path Traversal, Command Injection).
+    - Se 'search_http_l7_anomalies' imposta 'sospetto_web_bruteforce = true' E il volume di richieste è < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} E l'evidenza è CORROBORATA da almeno un segnale indipendente (RPS/http_req_rate non trascurabile, 'login_endpoint_targeted = true', oppure 'anomalie_entropia_trovate' > 0), il verdetto TASSATIVO è WEB_ATTACK_EXPLOIT.
+   - SE invece l'unico segnale attivo è il conteggio di richieste (sospetto_web_bruteforce = true) mentre http_req_rate è prossimo a zero, login_endpoint_targeted = false E anomalie_entropia_trovate = 0, la classificazione NON è tassativa: puoi concludere BENIGN citando esplicitamente questi tre valori a zero/basso come motivazione della deroga.
    - È TASSATIVAMENTE VIETATO classificare come 'DOS_VOLUMETRIC' o 'BENIGN' un attacco Web a basso/medio volume solo perché presenta flussi prolungati o perché i pochi campioni estratti mostrano entropia 0.0 o assenza di stringhe nei campioni parziali.
    - REGOLE DI TIE-BREAKING PER WEB BRUTE FORCE: Nei dataset, gli attacchi Web Brute Force NON contengono firme/payload espliciti di SQLi o XSS e l'URI HTTP spesso NON viene salvato nel DB.
    - SE compute_verdict_scores assegna a WEB_ATTACK_EXPLOIT uno score >= 0.75 (guidato da sospetto_web_bruteforce con centinaia di richieste HTTP concentrate):
@@ -173,16 +173,18 @@ SHORT-CIRCUIT E REGOLE DI CHIUSURA:
 4. BEACONING_C2 (BOTNET ED IMPIANTI C2 CON JITTERING):
    - Applicabile SOLO se i flussi periodici presentano indicatori C2 confermati e NON rientrano nei punti 1, 2 e 3.
    - Assegna 'BEACONING_C2' se 'detect_beaconing' individua una cadenza periodica regolare o jitter costante verso IP/porte C2 esterne non infrastrutturali.
-   - Gli impianti C2 moderni usano ritardi casuali (jitter) che alzano il Coefficiente di Variazione (CV > 0.60, fino a 1.5). Se 'detect_beaconing' individua un candidato verso un IP ESTERNO non infrastrutturale con connessioni ripetute (>= 15-20) su porte come 8080, 8443, 443 o 80, valuta BEACONING_C2 anche se CV > 0.60.
+   - Gli impianti C2 moderni usano ritardi casuali (jitter) che alzano il Coefficiente di Variazione (CV > 0.60, fino a 1.5). Se 'detect_beaconing' individua un candidato verso un IP ESTERNO non infrastrutturale con connessioni ripetute (>= 15-20) su porte come 8080, 8443, 443 o 80 E il candidato NON ha 'possibile_adtech_non_whitelistato = true', il verdetto è BEACONING_C2 anche se CV > 0.60.
+   - SE invece il candidato ha 'possibile_adtech_non_whitelistato = true' (hostname compatibile con pattern ads/tracking E CV nella fascia borderline 0.55-0.65), la classificazione NON è tassativa: prima di confermare BEACONING_C2 verifica esplicitamente l'hostname nel campione restituito e cita nella motivazione perché lo ritieni comunque malevolo, oppure concludi con la categoria immediatamente successiva più supportata dalle evidenze (o BENIGN se nessun'altra euristica supera 0.5), citando l'hostname come motivazione della deroga.
    - NON classificare come BENIGN un IP esterno sconosciuto solo perché le richieste non hanno entropia elevata o perché 'detect_beaconing' restituisce 'beaconing_c2_rilevato = false' a causa del solo CV elevato.
    - CONTRO-INDICAZIONE SCRIPT: Tentativi di connessione ad alta regolarità (CV <= 0.60) verso porte di gestione/servizio (21, 22, 23, 3389) o dentro un flood Web/DoS indicano uno script di Brute Force o DoS, non un impianto C2. NON classificare mai questi casi come BEACONING_C2.
 
-# All'interno di DIRETTIVA_VERDETTO_TEXT -> punto 5. BENIGN:
-
 5. BENIGN:
-   - Assegnabile ESCLUSIVAMENTE se TUTTI i tool di esplorazione (inclusi 'get_rate_statistics', 'get_flow_features', 'search_http_l7_anomalies' e 'compute_verdict_scores') indicano stato NORMALE e score pari a 0.0, ED è stata confermata l'assenza totale di anomalie L4/L7, scansioni, beaconing C2 o picchi/burst volumetrici.
-   - NOTA VPN/TUNNEL: Le sessioni persistenti o ripetute di VPN note (es. FortiClient / OpenVPN / IPsec) su porta 443/8443 che non presentano anomalie di entropia o allarmi volumetrici sono da considerarsi traffico ordinario BENIGN (a patto che compute_verdict_scores restituisca score 0.0).
-   - Se 'get_rate_statistics' o 'get_flow_features' hanno segnalato 'ANOMALIA_RILEVATA' o 'CRITICO', è SEVERAMENTE VIETATO assegnare BENIGN.
+   - Assegnabile SE 'compute_verdict_scores' è stato eseguito, TUTTI i suoi score sono < 0.5 e
+     non c'è conflitto a pari merito. In questo caso i flag grezzi degli altri tool sono già
+     stati riletti e respinti dal tool: BENIGN è ammesso.
+   - NOTA VPN/TUNNEL: Le sessioni persistenti o ripetute di VPN note (es. FortiClient / OpenVPN / IPsec) su porta 443/8443 che non presentano anomalie di entropia o allarmi volumetrici sono da considerarsi traffico ordinario BENIGN (a patto che compute_verdict_scores restituisca score < 0.5).
+   - Se almeno uno score è >= 0.5 o c'è un conflitto, BENIGN è VIETATO, salvo la deroga per
+     falso positivo documentato (vedi sopra).
 
 === ISTRUZIONI PER LA MOTIVAZIONE NEL THOUGHT ===
 Nel tuo ragionamento interno (Thought):
@@ -207,7 +209,7 @@ Nel tuo ragionamento interno (Thought):
 """
 
 FONTE_PRIMARIA_TEXT = f"""
---- REGOLA DI ATTRIBUZIONE EVIDENZE (quale segnale guida quale verdetto) ---
+REGOLA DI ATTRIBUZIONE EVIDENZE (quale segnale guida quale verdetto)
 - WEB_ATTACK_EXPLOIT: guidato da anomalie L7/HTTP esplicite (entropia
   del payload elevata, traffico asimmetrico sospetto, tentativi ripetuti su
   endpoint di login) individuate da 'search_http_l7_anomalies' o Web Brute Force.
@@ -221,31 +223,23 @@ FONTE_PRIMARIA_TEXT = f"""
   porte distinte per l'intero host.
 - DOS_VOLUMETRIC: guidato da PPS aggregati elevati (soglia di riferimento
   {_s.DOS_PPS_MIN} pps) oppure da un numero massivo di flussi Web/L7
-  (>= 1.000 richieste, o RPS >= {_s.DOS_L7_RPS_MIN:.0f}) concentrati in una
-  finestra breve. Il volume/rate è la prova primaria, non la presenza di
-  anomalie applicative. Il volume/rate è la
-  prova primaria, non la presenza di anomalie applicative.
-    SE ratio_porte_effimere >= 0.90 E porte_sorgente_uniche >= 100, questo è
-  di per sé un segnale SUFFICIENTE di DoS volumetrico (spoofing di porta/IP
-  sorgente, o probe di cattura che perde pacchetti sotto carico reale) —
-  anche se il PPS aggregato calcolato appare basso. NON scartare questo
-  segnale citando "PPS troppo basso": in questo scenario specifico il PPS
-  aggregato non è la prova rilevante, lo è la dispersione delle porte sorgente.
-  ECCEZIONE OBBLIGATORIA: questa regola NON si applica quando la dispersione di
-  porte sorgente è già spiegata da un bruteforce L4 confermato su una singola
-  porta di gestione (search_connection_attempts riporta SOSPETTO_BRUTEFORCE, o
-  get_host_port_distribution riporta sospetto_bruteforce=true con una sola porta
-  di destinazione contattata). In quel caso ogni tentativo di connessione apre
-  naturalmente una nuova porta sorgente effimera: è l'artefatto atteso di
-  qualunque script che ripete connessioni verso lo stesso target, non un
-  indicatore di flood o spoofing. Verifica sempre se porte_uniche_contattate
-  (da get_host_port_distribution) è 1 e se c'è un flag di bruteforce attivo
-  PRIMA di invocare questa regola: se sì, il verdetto corretto è SCAN_BRUTEFORCE,
-  non DOS_VOLUMETRIC, indipendentemente da quanto è alto ratio_porte_effimere. 
-  Questo segnale richiede inoltre un volume di flussi sostanziale (indicativamente
-  >= 500): sotto questa soglia la dispersione di porte è quasi sempre l'artefatto
-  di connessioni ripetute di qualunque natura (bruteforce, beaconing, polling
-  legittimo), non un vero flood volumetrico.
+  (>= {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} richieste, o RPS >= {_s.DOS_L7_RPS_MIN:.0f})
+  concentrati in una finestra breve. Il volume/rate è la prova primaria, non
+  la presenza di anomalie applicative.
+  SE (ratio_porte_effimere >= {_s.RATIO_PORTE_EFFIMERE_MIN} OPPURE
+  porte_sorgente_uniche >= {_s.PORTE_SORGENTE_UNICHE_MIN}) E il totale flussi
+  è >= {_s.DOS_DISPERSIONE_FLUSSI_MIN}, questo è di per sé un segnale
+  SUFFICIENTE di DoS volumetrico (spoofing di porta/IP sorgente, o probe di
+  cattura che perde pacchetti sotto carico reale), anche se il PPS aggregato
+  appare basso. NON scartarlo citando "PPS troppo basso": qui la prova
+  rilevante è la dispersione delle porte sorgente. Sotto la soglia di flussi
+  la dispersione è quasi sempre l'artefatto di connessioni ripetute di
+  qualunque natura (bruteforce, beaconing, polling legittimo), non un flood.
+  L'esclusione per bruteforce L4 confermato è già applicata dal tool: non
+  ricalcolarla. 
+  Eccezione: se frazione_flussi_infra (get_rate_statistics) è >= 
+  {_s.DOS_EFFIMERE_FRAZIONE_INFRA_MAX}, la dispersione di porte deriva da traffico 
+  di dominio/infrastruttura LAN (DNS, Kerberos, LDAP, SMB) e NON è un segnale di DoS.
 - BEACONING_C2: guidato da periodicità stabile (CV < {_s.CV_BEACON_JITTER_MAX})
   verso un host ESTERNO, purché il pattern non sia riconducibile a uno
   script di Brute Force o DoS già spiegato da un'altra regola. La prova
@@ -261,11 +255,12 @@ dai dati grezzi. Se invece un segnale ha un margine chiaro sull'altro (es. PPS/R
 molto sopra soglia DOS mentre le porte scan sono di poco sopra soglia, o viceversa),
 la priorità NON entra in gioco: segui il segnale con l'evidenza numerica più forte,
 non l'ordine della lista. In particolare, se il tool compute_verdict_scores segnala
-un CONFLITTO_IRRISOLTO, questo significa che NESSUN candidato ha superato la propria
-soglia con margine sufficiente: non risolvere il conflitto citando questa gerarchia,
-ma motiva esplicitamente quale evidenza grezza (PPS/RPS effettivo vs soglia, numero
-di porte vs soglia, concentrazione su singola destinazione) pende a favore di uno
-dei due, o scegli BENIGN se nessuna evidenza è davvero forte.
+un CONFLITTO_IRRISOLTO, significa che due o più categorie hanno lo stesso score massimo e il tool non ha
+saputo risolvere il pareggio (WEB/DOS e SCAN/DOS sono già risolti dal tool e
+annotati in note_logiche): non risolvere il conflitto citando questa gerarchia,
+ma motiva esplicitamente quale evidenza grezza (PPS/RPS effettivo vs soglia,
+numero di porte vs soglia, concentrazione su singola destinazione) pende a
+favore di uno dei due.
 Motivando sempre perché le altre ipotesi sono state scartate.
 """
 
@@ -288,49 +283,29 @@ SISTEMA INFLESSIBILE DI SELEZIONE DEL VERDETTO (HARD-LOCKOUT SYSTEM)
 Istruzioni per il modello: NON applicare interpretazioni personali o inferenze contestuali.
 Esegui la selezione del verdetto seguendo ESATTAMENTE la seguente gerarchia decisionale:
 
-PASSO 1: VERIFICA SOGLIE CRITICHE (OVERRIDE DI SICUREZZA)
-QUESTO PASSO SI APPLICA SOLO QUANDO IL VERDETTO DI STAGE 1 (indicato nel messaggio
-utente) È UN FALLBACK EURISTICO, cioè quando l'analista non ha prodotto un giudizio
-esplicito valido nel Thought. Se lo Stage 1 ha già stabilito un giudizio esplicito,
-quel giudizio è prevalente e questo PASSO 1 NON si applica: vai direttamente alle
-REGOLE TASSATIVE DI EMISSIONE REPORT più sotto.
+PASSO 1: CATEGORIA DI RIFERIMENTO
+Controlla 'verdetto_suggerito_euristica' restituito da 'compute_verdict_scores':
+- SE è una categoria di attacco (WEB_ATTACK_EXPLOIT, DOS_VOLUMETRIC, SCAN_BRUTEFORCE,
+  BEACONING_C2), quella è la categoria di riferimento.
+- I flag grezzi degli altri tool ('stato_anomalia', 'sospetto_web_bruteforce', ecc.) NON sono
+  un criterio autonomo: se compute_verdict_scores è stato eseguito, prevalgono i suoi score
+  numerici.
 
-Quando questo passo si applica, NON reinterpretare tu stesso gli score con soglie
-arbitrarie: usa direttamente i campi 'verdetto_suggerito_euristica' e
-'override_tassativo' restituiti da 'compute_verdict_scores'. Questi campi
-incorporano già tutti i depotenziamenti (fan-out invece di scan, VPN invece di
-web bruteforce, Slowloris marginale invece di DoS, ecc.): un valore numerico letto
-isolatamente (es. 0.60) può essere proprio il risultato di un depotenziamento
-intenzionale, non un segnale da confermare a soglia fissa.
-
-- SE 'override_tassativo' == true: il verdetto FINALE DEVE ESSERE il valore di
-  'verdetto_suggerito_euristica'.
-- SE 'verdetto_suggerito_euristica' == 'CONFLITTO_IRRISOLTO': non forzare nessuna
-  categoria di default; motiva, sulla base delle evidenze grezze (vedi
-  FONTE_PRIMARIA_TEXT), quale ipotesi è più forte, oppure scegli BENIGN se nessuna
-  evidenza è davvero solida.
-- 'stato_anomalia' == 'ANOMALIA_RILEVATA' in get_rate_statistics NON è di per sé
-  un override tassativo verso DOS_VOLUMETRIC: se 'compute_verdict_scores' ha già
-  riletto quel segnale e restituisce DOS_VOLUMETRIC a 0.0, il flag grezzo era un
-  falso positivo già risolto a valle (vedi la NOTA nel PASSO 2 qui sotto), e va
-  trattato come tale, non usato per forzare un verdetto di attacco.
-
-PASSO 2: CONDIZIONE ESCLUSIVA PER 'BENIGN'
-Puoi assegnare il verdetto 'BENIGN' ESCLUSIVAMENTE SE TUTTI I SEGUENTI PUNTI SONO VERIFICATI CONTEMPORANEAMENTE:
-1. 'compute_verdict_scores' restituisce TUTTI GLI SCORE FISICAMENTE PARI A 0.0 (o < 0.50).
-2. 'get_host_port_distribution' NON riporta 'sospetto_portscan: true' né 'sospetto_bruteforce: true'.
-3. 'search_http_l7_anomalies' ha 'sospetto_web_bruteforce' == false e 0 anomalie.
-4. 'detect_beaconing' ha 'beaconing_c2_rilevato' == false.
-
-NOTA: 'get_rate_statistics' che riporta 'ANOMALIA_RILEVATA'/'CRITICO' NON blocca da solo
-BENIGN quando 'compute_verdict_scores' (che rilegge e ripesa internamente quello stesso
-dato) restituisce comunque tutti gli score a 0.0: in quel caso il flag grezzo era un
-falso positivo già risolto dall'euristica a valle, e va spiegato come tale nella
-motivazione, non usato per forzare un verdetto di attacco.
+PASSO 2: CONDIZIONE PER 'BENIGN'
+Puoi assegnare 'BENIGN' SOLO SE:
+1. 'compute_verdict_scores' è stato eseguito e TUTTI gli score sono < 0.50 e non è presente
+   un conflitto a pari merito. In questo caso i flag grezzi degli altri tool sono già stati
+   riletti e respinti dal tool;
+2. OPPURE ricorre la DEROGA PER FALSO POSITIVO DOCUMENTATO (nessuno score >= 0.95, nessun
+   override tassativo, hostname o servizio legittimo citato dai tool, euristica sbagliata
+   spiegata).
 
 DIVIETI TASSATIVI:
-- Se il PASSO 1 forza una categoria di attacco (score >= 0.60), È SEVERAMENTE VIETATO motivare con "falso positivo", "traffico FortiClient", "sessione VPN" o "assenza di payload" per scegliere 'BENIGN'.
-- Se il tool Python ha già filtrato la VPN e restituito score 0.0, assegna 'BENIGN' senza esitazione. Se il tool restituisce uno score >= 0.60, DEVI conformarti allo score senza discutere l'euristica.
+- Se il PASSO 1 indica una categoria di attacco, è VIETATO scegliere 'BENIGN' con motivazioni
+  generiche ("falso positivo", "sessione VPN", "assenza di payload") che non citano un
+  hostname o servizio effettivamente presente negli output dei tool.
+- Se il tool ha già filtrato la VPN e restituito tutti gli score < 0.50, assegna 'BENIGN'
+  senza esitazione.
 
 FORMATO EMISSIONE REPORT:
 - Rispettare i verdetti ammessi: [{_verdetti_str}].
@@ -358,8 +333,6 @@ del report: il campo motivazione deve essere prosa semplice, leggibile da
 un analista umano senza ulteriore formattazione.
 
 {DIRETTIVA_VERDETTO_TEXT}
-
-{DIVIETO_BENIGN_CON_ANOMALIE}
 
 {FONTE_PRIMARIA_TEXT}
 
@@ -430,12 +403,15 @@ REGOLE TASSATIVE DI EMISSIONE REPORT:
    dedotto per analogia con altri scenari visti in passato.
 2. VERDETTI AMMESSI: [{_verdetti_str}]. Nessuna sigla alternativa, nessuna
    combinazione di due verdetti nello stesso campo.
-3. CLASSIFICAZIONE WEB_ATTACK_EXPLOIT vs DOS_VOLUMETRIC: le soglie e la priorità tra queste due
-   categorie sono definite in modo esaustivo nei punti 1-2 di DIRETTIVA_VALUTAZIONE_E_VERDETTO
-   sopra. Non esistono altre condizioni oltre a quelle: non derogare a BENIGN argomentando
-   "entropia zero" o "nessuna signature nei singoli flussi" quando 'sospetto_web_bruteforce'
-   è true e il volume è sotto soglia DOS_VOLUMETRIC (vedi punto 3 della stessa direttiva
-   sul campionamento non esaustivo).
+3. CLASSIFICAZIONE WEB_ATTACK_EXPLOIT vs DOS_VOLUMETRIC: Web Brute Force o
+   attacco applicativo a basso/medio volume (< {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi Web e
+   RPS < {_s.DOS_L7_RPS_MIN:.0f}) con 'sospetto_web_bruteforce' true o anomalie L7 ->
+   WEB_ATTACK_EXPLOIT. Volume/rate elevato (>= {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi Web
+   concentrati, RPS >= {_s.DOS_L7_RPS_MIN:.0f}, oppure PPS >= {_s.DOS_PPS_MIN}) -> DOS_VOLUMETRIC.
+   Non declassare a BENIGN argomentando "entropia zero" o "nessuna signature
+   nei singoli flussi" quando 'sospetto_web_bruteforce' è true e il volume è
+   sotto soglia DoS: i campioni di flussi riportati sono parziali (pochi
+   elementi) e non esaustivi.
 4. CLASSIFICAZIONE SCAN_BRUTEFORCE: cadenze fisse o scansioni verso porte di
    gestione (21, 22, 3389) vanno classificate come SCAN_BRUTEFORCE e MAI
    come BEACONING_C2, anche se la cadenza è molto regolare: la regolarità da
@@ -476,13 +452,13 @@ GERARCHIA DI VALUTAZIONE CATEGORIA A (segui rigorosamente quest'ordine):
      compatibili con XSS, SQLi, Path Traversal (payload_entropy=1 su richieste brevi, 
      traffico fortemente asimmetrico), OPPURE si osserva una sequenza di tentativi 
       ripetuti/falliti verso pagine HTTP/HTTPS (Web Brute Force / Fuzzing / login 
-     endpoint su porta 80/443 con flussi < 1.000) -> VERDETTO = WEB_ATTACK_EXPLOIT.
+     endpoint su porta 80/443 con flussi < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN}) -> VERDETTO = WEB_ATTACK_EXPLOIT.
     - OVERRIDE SLOWLORIS / DoS APPLICATIVO: Se un attacco Web invia un numero 
-     molto contenuto di connessioni (< 1.000 flussi, RPS < 10) e senza burst ad
+     molto contenuto di connessioni (< {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi, RPS < {_s.DOS_L7_RPS_MIN:.0f}) e senza burst ad
      alta densità di porte effimere, NON classificare come DOS_VOLUMETRIC, anche se i flussi appaiono prolungati. Il verdetto TASSATIVO rimane WEB_ATTACK_EXPLOIT.
-     Se invece i flussi superano le 1.000 unità OPPURE la RPS web supera 10, applica la regola DOS_VOLUMETRIC (Priorità 3). Il solo conteggio di flussi tra 150 e 1.000 NON è sufficiente da solo.
+     Se invece i flussi superano le {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} unità OPPURE la RPS web supera 10, applica la regola DOS_VOLUMETRIC (Priorità 3). Il solo conteggio di flussi tra {_s.DOS_DISPERSIONE_FLUSSI_MIN} e {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} NON è sufficiente da solo.
     - REGOLA DI STOP MANDATORIA: Se la condizione di Exploit applicativo o Web 
-     Brute Force a basso volume (< 1.000 flussi, RPS < 10) è verificata, interrompi immediatamente l'analisi ed 
+     Brute Force a basso volume (< {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi, RPS < {_s.DOS_L7_RPS_MIN:.0f}) è verificata, interrompi immediatamente l'analisi ed 
      emetti subito il verdetto WEB_ATTACK_EXPLOIT. NON interrogare tool di rate (PPS/RPS) o di scansione dopo aver confermato l'attacco Web.
 
 2. PRIORITÀ 2 - SCAN / BRUTE FORCE L4:
@@ -498,7 +474,7 @@ GERARCHIA DI VALUTAZIONE CATEGORIA A (segui rigorosamente quest'ordine):
    - IL DISCRIMINANTE REALE è la velocità (RPS), non il volume totale: classifica come
      DOS_VOLUMETRIC solo se 'burst_web_rps' o 'web_rps' (da get_rate_statistics) supera
      {_s.DOS_L7_RPS_MIN:.0f} circa (soglia di riferimento RPS > 10), oppure se il
-     conteggio supera esplicitamente 1.000 richieste (soglia identica al criterio
+     conteggio supera esplicitamente {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} richieste (soglia identica al criterio
      globale WEB_ATTACK_EXPLOIT, per coerenza — NON 150-200).
    - Se il volume è alto (centinaia di flussi) MA la RPS resta bassa (< 10, tipicamente < 1),
      resta su WEB_ATTACK_EXPLOIT: è il pattern tipico di un brute force lento/scriptato che
@@ -526,24 +502,14 @@ legittimo (es. un trasferimento file pianificato).
 REGOLE DI VALUTAZIONE:
 - RULE #1 (DoS Volumetrico L4 o DoS Applicativo L7): 
   a) SE 'avg_packet_rate' > {_s.DOS_PPS_MIN_FALLBACK} pps OPPURE 'max_packet_rate' >= {_s.DOS_PPS_MIN} pps -> VERDETTO = DOS_VOLUMETRIC.
-  b) SE si osserva una combinazione ad alta densità su servizi Web: >= 1.000 flussi
-     (o RPS >= {_s.DOS_L7_RPS_MIN:.0f}) concentrati con >85% di porte sorgente
-     effimere uniche e/o segnalazione di 'ANOMALIA_RILEVATA'/'CRITICO' da
-     get_rate_statistics -> VERDETTO = DOS_VOLUMETRIC (anche con PPS aggregati bassi).
-  PRECEDENZA DI RULE #1b IN QUESTA CATEGORIA: il criterio "volume >= 1.000 flussi
-  OPPURE ratio porte effimere >85% OPPURE ANOMALIA_RILEVATA/CRITICO" è una condizione
-  in OR, non in AND: basta UNA delle tre per attivare DOS_VOLUMETRIC in questa categoria,
-  indipendentemente dal valore della RPS. In categoria B (a differenza della categoria A,
-  dove il discriminante primario è la RPS applicativa) NON applicare il ragionamento
-  "RPS bassa quindi non è un flood, è un Web Brute Force": quel criterio vale per
-  distinguere WEB_ATTACK_EXPLOIT da DOS_VOLUMETRIC quando l'ipotesi di lavoro iniziale
-  è un attacco applicativo (categoria A), non quando l'ipotesi di lavoro iniziale è
-  già un sospetto volumetrico (categoria B, questo caso). Se 'get_rate_statistics'
-  riporta ANOMALIA_RILEVATA/CRITICO E il volume di flussi web supera 1.000, il verdetto
-  DOS_VOLUMETRIC è dovuto anche se il campo 'sospetto_web_bruteforce' risulta true e
-  anche se il web_rps calcolato è basso: quel flag descrive lo STESSO fenomeno letto da
-  un altro tool (concentrazione di richieste ripetute su un target), non un'ipotesi
-  alternativa da preferire.
+    b) SE si osserva una combinazione ad alta densità su servizi Web: >= {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi
+     (o RPS >= {_s.DOS_L7_RPS_MIN:.0f}) concentrati, OPPURE la dispersione di porte
+     sorgente descritta in RULE #3 -> VERDETTO = DOS_VOLUMETRIC (anche con PPS aggregati bassi).
+  PRECEDENZA IN QUESTA CATEGORIA: un volume >= {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi web basta da solo, anche se
+  'sospetto_web_bruteforce' è true e il web_rps è basso: quel flag descrive lo STESSO
+  fenomeno letto da un altro tool, non un'ipotesi alternativa. Il flag grezzo
+  'ANOMALIA_RILEVATA' di get_rate_statistics, invece, NON è un criterio autonomo:
+  conta lo score di compute_verdict_scores.
 - RULE #2 (Banda satura): SE 'avg_byte_rate' supera ampiamente i valori
   tipici di un client applicativo, OPPURE il picco massimo di byte_rate è
   molto più alto della media (indice di un burst improvviso e sostenuto)
@@ -554,23 +520,17 @@ REGOLE DI VALUTAZIONE:
 - DEFAULT: se sia i valori medi che i valori massimi restano sotto le
   soglie critiche per l'intera finestra temporale e non vi sono allarmi DoS L7 -> VERDETTO = BENIGN.
 - RULE #3 (Dispersione estrema porte sorgente = segnale valido anche a PPS basso):
-  SE ratio_porte_effimere >= 0.90 E porte_sorgente_uniche >= 100, questo è
+  SE (ratio_porte_effimere >= {_s.RATIO_PORTE_EFFIMERE_MIN} OPPURE porte_sorgente_uniche >=
+  {_s.PORTE_SORGENTE_UNICHE_MIN}) E il totale flussi è >= {_s.DOS_DISPERSIONE_FLUSSI_MIN}, questo è
   di per sé un segnale SUFFICIENTE di DoS volumetrico (spoofing di porta/IP
   sorgente, o probe di cattura che perde pacchetti sotto carico reale) —
   anche se il PPS aggregato calcolato appare basso. NON scartare questo
   segnale citando "PPS troppo basso": in questo scenario specifico il PPS
   aggregato non è la prova rilevante, lo è la dispersione delle porte sorgente.
-  ECCEZIONE OBBLIGATORIA: questa regola NON si applica quando la dispersione di
-  porte sorgente è già spiegata da un bruteforce L4 confermato su una singola
-  porta di gestione (search_connection_attempts riporta SOSPETTO_BRUTEFORCE, o
-  get_host_port_distribution riporta sospetto_bruteforce=true con una sola porta
-  di destinazione contattata). In quel caso ogni tentativo di connessione apre
-  naturalmente una nuova porta sorgente effimera: è l'artefatto atteso di
-  qualunque script che ripete connessioni verso lo stesso target, non un
-  indicatore di flood o spoofing. Verifica sempre se porte_uniche_contattate
-  è 1 e se c'è un flag di bruteforce attivo PRIMA di invocare questa regola:
-  se sì, il verdetto corretto è SCAN_BRUTEFORCE, non DOS_VOLUMETRIC,
-  indipendentemente da quanto è alto ratio_porte_effimere.
+  Eccezione: se frazione_flussi_infra (get_rate_statistics) è >= 
+  {_s.DOS_EFFIMERE_FRAZIONE_INFRA_MAX}, la dispersione di porte deriva da traffico di 
+  dominio/infrastruttura LAN (DNS, Kerberos, LDAP, SMB) e NON è un segnale di DoS.
+  L'esclusione per bruteforce L4 confermato è già applicata dal tool: non ricalcolarla.
 
 NOTA SU compute_verdict_scores in questa categoria: il 'dos_score'
 restituito dal tool pesa sia PPS che flussi web; se è alto ma
@@ -604,9 +564,9 @@ REGOLE DI VALUTAZIONE:
   HTTP/HTTPS supera i {_s.SLOWLORIS_DURATION_MS // 1000} secondi
   (duration_ms > {_s.SLOWLORIS_DURATION_MS}) E i byte totali trasferiti sono
   bassi (< {_s.SLOWLORIS_MAX_BYTES} byte):
-  a) Se si tratta di pochi flussi isolati (< 1.000 flussi, RPS < 10) con tentativi
+  a) Se si tratta di pochi flussi isolati (< {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi, RPS < {_s.DOS_L7_RPS_MIN:.0f}) con tentativi
      su endpoint -> VERDETTO = WEB_ATTACK_EXPLOIT.
-  b) Se il numero di sessioni lente/aperte è elevato (>= 1.000 flussi, RPS >= 10,
+  b) Se il numero di sessioni lente/aperte è elevato (>= {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi, RPS >= 10,
      o con >85% porte effimere) -> VERDETTO = DOS_VOLUMETRIC.
 - DEFAULT: se non sono presenti PortScan, Brute Force né pattern Slowloris
   -> VERDETTO = BENIGN.
@@ -662,24 +622,30 @@ e determinare la natura dell'attività seguendo un ordine di priorità fisso,
 in modo che due analisi sullo stesso host producano sempre lo stesso
 verdetto a parità di evidenze (determinismo).
 
-ORDINE TASSATIVO DI VALUTAZIONE:
-1. PRIORITÀ 1 - BEACONING C2/BOTNET: se è presente QUALSIASI flusso
-   etichettato come Bot/C2/Beacon (anche solo 1-5 flussi su migliaia di
-   flussi benigni) OPPURE l'Anomaly Score di beaconing è >=
-   {_s.ANOMALY_SCORE_C2_MIN} -> VERDETTO = BEACONING_C2. Non applicare
-   soglie minime di volume per questa minaccia: anche un canale C2 a
-   bassissimo traffico è comunque un impianto attivo.
-2. PRIORITÀ 2 - EXPLOIT WEB/L7: ... o Web Brute Force a basso volume
-   (< 1.000 flussi, RPS < 10) -> VERDETTO = WEB_ATTACK_EXPLOIT.
-3. PRIORITÀ 3 - DOS VOLUMETRICO / DOS L7: applica se i PPS superano
-   {_s.DOS_PPS_MIN_FALLBACK} pps OPPURE se è presente un accumulo di flussi ad
-   alta densità (>= 1.000 flussi web, RPS >= {_s.DOS_L7_RPS_MIN:.0f}, >85% porte
-   effimere uniche o allarme critico da get_rate_statistics). Se l'host ha pochissimi 
- flussi (< 50) e nessun allarme, la valutazione DoS è automaticamente negativa.
-4. PRIORITÀ 4 - SCAN/BRUTE FORCE: se è presente un port scan strutturato
+ORDINE TASSATIVO DI VALUTAZIONE (stessa priorità di default della regola di
+attribuzione evidenze: WEB_ATTACK_EXPLOIT > SCAN_BRUTEFORCE > DOS_VOLUMETRIC >
+BEACONING_C2 > BENIGN):
+1. PRIORITÀ 1 - EXPLOIT WEB/L7: se sono presenti anomalie L7/HTTP esplicite
+   (entropia del payload elevata, traffico asimmetrico sospetto, endpoint di
+   login mirati) OPPURE un Web Brute Force a basso volume (< {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN}
+   flussi, RPS < {_s.DOS_L7_RPS_MIN:.0f}) -> VERDETTO = WEB_ATTACK_EXPLOIT.
+2. PRIORITÀ 2 - SCAN/BRUTE FORCE: se è presente un port scan strutturato
    (>= {_s.SCAN_PORTE_MIN} porte scansionate con connessioni multiple
    fallite) OPPURE tentativi reiterati di Brute Force SSH/FTP -> VERDETTO =
    SCAN_BRUTEFORCE. Connessioni singole isolate non costituiscono uno scan.
+3. PRIORITÀ 3 - DOS VOLUMETRICO / DOS L7: applica se i PPS superano
+   {_s.DOS_PPS_MIN_FALLBACK} pps OPPURE se è presente un accumulo di flussi ad
+   alta densità (>= {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} flussi web, RPS >= {_s.DOS_L7_RPS_MIN:.0f},
+   >85% porte effimere uniche o allarme critico da get_rate_statistics). Se
+   l'host ha pochissimi flussi (< {_s.DOS_L7_FLUSSI_MIN}) e nessun allarme, la
+   valutazione DoS è automaticamente negativa.
+4. PRIORITÀ 4 - BEACONING C2/BOTNET: se è presente QUALSIASI flusso
+   etichettato come Bot/C2/Beacon (anche solo 1-5 flussi su migliaia di
+   flussi benigni) OPPURE l'Anomaly Score di beaconing è >=
+   {_s.ANOMALY_SCORE_C2_MIN}, e il pattern non è già spiegato da una delle
+   priorità 1-3 -> VERDETTO = BEACONING_C2. Non applicare soglie minime di
+   volume per questa minaccia: anche un canale C2 a bassissimo traffico è
+   comunque un impianto attivo.
 5. DEFAULT ASSOLUTO (protezione dai falsi positivi): se non sono verificate
    le priorità 1-4 -> VERDETTO = BENIGN. Di fronte a traffico ordinario o
    privo di violazioni esplicite delle regole sopra, l'unica risposta valida
@@ -929,16 +895,10 @@ connessioni successive.
 METRICHE RESTITUITE:
 - cv (Coefficient of Variation = deviazione standard / media degli
   intervalli): cv < {_s.CV_BEACON_STRICT} indica periodicità matematica
-  (tipica di script/botnet); {_s.CV_BEACON_STRICT} <= cv <= {_s.CV_BEACON_JITTER_MAX}
-  indica periodicità con jitter leggero (compatibile con C2 che randomizza
-  i tempi per evitare il rilevamento); {_s.CV_BEACON_JITTER_MAX} < cv <=
-  {_s.CV_BEACON_UPPER_JITTER} indica jitter più marcato ma ANCORA da
-  considerare un candidato di beaconing sospetto se il target è un IP esterno
-  non whitelistato (il tool assegna comunque un anomaly_score fino a ~80/100
-  in questa fascia, più alto se la porta è non standard e non 8080/8443): NON
-  scartarlo come "traffico casuale" solo perché il CV supera
-  {_s.CV_BEACON_JITTER_MAX}; cv > {_s.CV_BEACON_UPPER_JITTER} indica invece
-  traffico non periodico, verosimilmente umano o casuale; cv = 999.0
+  (tipica di script/botnet); {_s.CV_BEACON_STRICT} <= cv < {_s.CV_BEACON_JITTER_MAX}
+  indica periodicità con jitter (compatibile con C2 che randomizza
+  leggermente i tempi per evitare il rilevamento); cv >= {_s.CV_BEACON_JITTER_MAX}
+  indica traffico non periodico, verosimilmente umano o casuale; cv = 999.0
   indica un intervallo medio prossimo a zero (richieste quasi-simultanee o
   burst), da NON interpretare come beaconing periodico ma come possibile
   prefetch/batch di risorse.
@@ -971,14 +931,14 @@ METRICHE E LOGICA:
   flussi con payload_entropy=1 (flag binario, non un valore continuo),
   indice di cifratura non standard o tunneling secondo la pipeline di
   ingestione.
-- Identifica tentativi di Web Brute Force quando uno stesso IP genera >= 30
-  richieste concentrate su <= 3 target distinti (campo
+- Identifica tentativi di Web Brute Force quando uno stesso IP genera >= {_s.WEBBF_MIN_RICHIESTE}
+  richieste concentrate su <= {_s.WEBBF_TARGET_MAX} target distinti (campo
   'sospetto_web_bruteforce').
 - 'target_ip_porta_bruteforce': lista di coppie (dst_ip, dst_port) colpite dal
   pattern di Web Brute Force rilevato. Se coincide con la destinazione di un
   candidato di beaconing già confermato (vedi 'detect_beaconing'), è lo stesso
-  canale letto da due angolazioni: compute_verdict_scores lo gestisce già
-  automaticamente deprioritizzando WEB_ATTACK_EXPLOIT in quel caso.
+  canale letto da due angolazioni: valuta entrambe le evidenze prima di
+  scegliere tra WEB_ATTACK_EXPLOIT e BEACONING_C2.
 
 LIMITAZIONI ED INTERPRETAZIONE:
 - Il database esamina solo metadati L7/nDPI, non il body completo HTTP:
@@ -1193,7 +1153,7 @@ CONTESTO DELL'INDAGINE
   delle evidenze che raccoglierai, non confermarla a prescindere solo
   perché è quella indicata qui.
 
-ORDINE OPERATIVO OBLIGATORIO:
+ORDINE OPERATIVO OBBLIGATORIO:
 - Raccogli i dati sintetici di traffico e anomalie L7/L4 nei primi turni.
 - Se rilevi un volume anomalo o anomalie L7, chiama `compute_verdict_scores`.
 - Se lo score calcolato è >= 0.95, **NON chiamare altri tool**. Concludi l'esplorazione ed emetti il verdetto finale nel report.
