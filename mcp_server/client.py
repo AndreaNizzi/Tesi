@@ -24,6 +24,7 @@ import copy
 import asyncio 
 import traceback
 import textwrap
+import ipaddress
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime
@@ -36,6 +37,45 @@ from openai import APIConnectionError, APITimeoutError
 import utils
 import config
 import engine, prompts
+
+_SUFFISSI_DOMINIO_LEGITTIMI = (".com", ".net", ".org", ".io", ".co", ".dev")
+
+def _hostname_e_legittimo(nome: str) -> bool:
+    """Un hostname/provider è 'legittimo' ai fini della deroga BENIGN solo se è
+    un dominio pubblico riconoscibile o un provider cloud noto,
+    non un hostname interno generico, non una stringa ambigua."""
+    if not nome:
+        return False
+    n = nome.strip().lower()
+    try:
+        ipaddress.ip_address(n)
+        return False  # è un IP, non un hostname
+    except ValueError:
+        pass
+    if any(p in n for p in config.PROVIDER_REPUTATI):
+        return True
+    if any(n.endswith(suf) for suf in _SUFFISSI_DOMINIO_LEGITTIMI) and n.count(".") >= 1:
+        return True
+    return False
+
+def _ha_score_altissimo_in_compute_verdict(risultati: list) -> bool:
+    """Verifica se l'ULTIMO risultato di compute_verdict_scores riporta già
+    un punteggio >= 0.95 per una categoria di attacco (soglia di STOP
+    esplicitata nel system prompt). A differenza di _verifica_segnale_forte,
+    funziona anche sul testo 'wrappato' con l'header ESITO TASSATIVO, perché
+    cerca il pattern via regex invece di fare json.loads dell'intero blob."""
+    for t in reversed(risultati):
+        if t.get("tool_name") != "compute_verdict_scores":
+            continue
+        r = t.get("result")
+        if not isinstance(r, str):
+            return False
+        for cat in config.CAT_ATTACCO:
+            m = re.search(rf'"{cat}":\s*([\d.]+)', r)
+            if m and float(m.group(1)) >= 0.95:
+                return True
+        return False
+    return False
 
 # ==============================================================================
 # ENGINE PRINCIPALE DI ANALISI MCP
@@ -69,6 +109,9 @@ async def esegui_analisi_mcp(
         "tempo_sql_reale_sec": 0.0,
         "tempo_totale_esecuzione": 0.0,
         "tempo_attesa_rate_limit_sec": 0.0,
+        "turni_esplorazione": 0,
+        "tool_eseguiti": 0,
+        "verdetti_ribaltati_senza_nuovo_tool": 0, 
     }
 
     log_lines: List[str] = []
@@ -160,7 +203,20 @@ async def esegui_analisi_mcp(
                     _num(r'"burst_pps":\s*([\d.]+)', r),
                 )
                 slow = _num(r'"flussi_slowloris":\s*(\d+)', r)
-                if pps >= s.DOS_PPS_MIN_FALLBACK or slow >= s.SLOWLORIS_FLUSSI_MIN:
+                ratio = _num(r'"ratio_porte_effimere":\s*([\d.]+)', r)
+                porte = _num(r'"porte_sorgente_uniche":\s*(\d+)', r)
+                tot   = _num(r'"totale_flussi":\s*(\d+)', r)
+                fweb  = _num(r'"flussi_web_totali":\s*(\d+)', r)
+                rps   = _num(r'"web_rps":\s*([\d.]+)', r)
+            
+                if (
+                    pps >= s.DOS_PPS_MIN_FALLBACK
+                    or slow >= s.SLOWLORIS_FLUSSI_MIN
+                    or ((ratio >= s.RATIO_PORTE_EFFIMERE_MIN or porte >= s.PORTE_SORGENTE_UNICHE_MIN)
+                        and tot >= s.DOS_DISPERSIONE_FLUSSI_MIN)
+                    or fweb >= s.DOS_L7_FLUSSI_ASSOLUTI_MIN
+                    or rps >= s.DOS_L7_RPS_MIN
+                ):
                     return True
             return False
 
@@ -199,6 +255,63 @@ async def esegui_analisi_mcp(
 
         return False
 
+    PRIORITA_DEFAULT = ["WEB_ATTACK_EXPLOIT", "SCAN_BRUTEFORCE", "DOS_VOLUMETRIC", "BEACONING_C2"]
+
+    def _estrai_conflitto_tool(risultati: list) -> list:
+        """Candidati a pari merito dal primo compute_verdict_scores (stesso criterio di
+        engine.estrai_suggerimento_tool). Lista vuota se assente o non parsabile."""
+        for t in risultati:
+            if t.get("tool_name") != "compute_verdict_scores":
+                continue
+            try:
+                data = json.loads(t.get("result") or "")
+            except (json.JSONDecodeError, TypeError):
+                return []
+            return [c for c in (data.get("conflitto_a_pari_merito") or []) if c in PRIORITA_DEFAULT]
+        return []
+
+    def _evidenza_dura(risultati: list) -> Tuple[bool, str]:
+        s = config.Soglie
+        def _num(p, t, d=0.0):
+            m = re.search(p, t)
+            return float(m.group(1)) if m else d
+        for t in risultati:
+            r = t.get("result")
+            if not isinstance(r, str):
+                continue
+            if _num(r'"anomalie_l7_trovate":\s*(\d+)', r) > 0 or _num(r'"anomalie_entropia_trovate":\s*(\d+)', r) > 0:
+                return True, "anomalie L7/entropia"
+            if '"login_endpoint_targeted": true' in r:
+                return True, "endpoint di login"
+            if _num(r'"flussi_slowloris":\s*(\d+)', r) >= s.SLOWLORIS_FLUSSI_MIN:
+                return True, "Slowloris"
+            if max(_num(r'"pps_aggregati":\s*([\d.]+)', r), _num(r'"burst_pps":\s*([\d.]+)', r)) >= s.DOS_PPS_MIN_FALLBACK:
+                return True, "PPS sopra soglia"
+            if _num(r'"flussi_web_totali":\s*(\d+)', r) >= s.DOS_L7_FLUSSI_ASSOLUTI_MIN or _num(r'"web_rps":\s*([\d.]+)', r) >= s.DOS_L7_RPS_MIN:
+                return True, "volume/RPS web"
+            if "SOSPETTO_BRUTEFORCE" in r or ("SOSPETTO_PORTSCAN" in r and _num(r'"porte_uniche_contattate":\s*(\d+)', r) >= s.SCAN_PORTE_MIN):
+                return True, "scan/bruteforce L4"
+            if "CONFIRMED_BEACONING_C2" in r:
+                return True, "beaconing con CV stretto"
+        return False, ""
+
+    def _deroga_benign_ammessa(thought: str, risultati: list) -> Tuple[bool, str]:
+        if _estrai_conflitto_tool(risultati):
+            return False, "pareggio non risolto"
+        dura, motivo = _evidenza_dura(risultati)
+        if dura:
+            return False, f"evidenza dura presente: {motivo}"
+        nomi = set()
+        for t in risultati:
+            r = str(t.get("result") or "")
+            for h in re.findall(r'"(?:hostname|ndpi_hostname|infra_provider)":\s*"([^"]+)"', r):
+                if h and h.upper() != "N/A":
+                    nomi.add(h.lower())
+        citati = [n for n in nomi if n in (thought or "").lower() and _hostname_e_legittimo(n)]
+        if not citati:
+            return False, "nessun hostname/provider LEGITTIMO (dominio pubblico noto o provider cloud riconosciuto) citato nel Thought"
+        return True, f"solo euristiche morbide; servizio citato: {citati}"
+    
     # -------------------------------------------------------------------------
     # ARCHITETTURA DEI PROMPT (Inizializzazione Turno 1)
     # -------------------------------------------------------------------------
@@ -221,6 +334,7 @@ async def esegui_analisi_mcp(
     storico_chiamate_hash = set()
     verdetto_vincolante_str = "UNKNOWN" 
     report_content: Optional[str] = None
+    deroga_pre_scarto_max_turni: Optional[bool] = None
 
     log_print(f"=== INIZIO INDAGINE MCP PER TARGET: {ip_target} ===")
 
@@ -256,6 +370,9 @@ async def esegui_analisi_mcp(
 
                 while stato_investigazione == "ESPLORAZIONE" and turno < max_turns:
                     log_print(f"\n==================== TURNO {turno + 1}/{max_turns} [{stato_investigazione}] ====================")
+                    metriche_tempo["turni_esplorazione"] = turno + 1
+                    ultimo_verdetto_chiusura = None
+                    tool_eseguito_dopo_ultimo_verdetto = True
                     testo_risposta = ""  # Reset a ogni turno
 
                     if engine._controlla_loop_community_id(messages):
@@ -365,6 +482,28 @@ async def esegui_analisi_mcp(
                         log_print("└────────────────────────────────────────────────────────────────────────────┘\n")
 
                     # =========================================================================
+                    # CORTOCIRCUITO: VERDETTO GIÀ DICHIARATO NEL TESTO NONOSTANTE UNA TOOL_CALL
+                    # =========================================================================
+                    if tool_calls:
+                        tool_eseguiti_correnti = {t["tool_name"] for t in risultati_tool_raccolti}
+                        tutti_obbligatori_fatti = "compute_verdict_scores" in tool_eseguiti_correnti
+                        ha_segnale_forte_corrente = _ha_score_altissimo_in_compute_verdict(risultati_tool_raccolti)
+                        verdetto_gia_dichiarato = engine.estrai_verdetto_pulito(testo_risposta)
+
+                        if (
+                            tutti_obbligatori_fatti
+                            and ha_segnale_forte_corrente
+                            and verdetto_gia_dichiarato in prompts.VERDETTI_AMMESSI
+                        ):
+                            log_print(
+                                f" -> [AVVISO CORTOCIRCUITO]: L'LLM ha già dichiarato il verdetto finale "
+                                f"'{verdetto_gia_dichiarato}' nel testo pur generando una tool_call "
+                                f"({tool_calls[0].get('function', {}).get('name')}). Ignoro la tool_call: "
+                                "i tool obbligatori sono completi e c'è già un segnale forte >= 0.95."
+                            )
+                            tool_calls = []
+
+                    # =========================================================================
                     # ESECUZIONE TOOL CALL PRESENTE
                     # =========================================================================
                     if tool_calls and isinstance(tool_calls[0], dict):
@@ -469,6 +608,7 @@ async def esegui_analisi_mcp(
                             )
                             
                             risultati_tool_raccolti.append({"tool_name": nome_funzione, "result": testo_risultato_sicuro})
+                            tool_eseguito_dopo_ultimo_verdetto = True
                             metriche_tempo["tempo_sql_reale_sec"] += estrai_tempo_sql(mcp_result, testo_risultato_sicuro)
 
                             try:
@@ -495,12 +635,10 @@ async def esegui_analisi_mcp(
                                     )
 
                                     # Estrazione degli score numerici
-                                    CATEGORIE_ATTACCO = {"DOS_VOLUMETRIC", "SCAN_BRUTEFORCE", "BEACONING_C2", "WEB_ATTACK_EXPLOIT"}
-                                    
                                     scores_validi = {
                                         k: float(v)
                                         for k, v in res_json.items()
-                                        if k in CATEGORIE_ATTACCO and isinstance(v, (int, float))
+                                        if k in config.CAT_ATTACCO and isinstance(v, (int, float))
                                     }
 
                                     # Rilevamento dinamico di pareggi / top score
@@ -527,7 +665,7 @@ async def esegui_analisi_mcp(
                                     
                                     # Unifica i conflitti segnalati dal JSON o rilevati dall'analisi 
                                     conflitti = res_json.get("conflitto_a_pari_merito", [])
-                                    if not conflitti and len(vincitori_top) > 1:
+                                    if not conflitti and len(vincitori_top) > 1 and verdetto not in config.CAT_ATTACCO:
                                         conflitti = vincitori_top
 
                                     corroborato = _ha_evidenza_corroborante(verdetto, risultati_tool_raccolti)
@@ -541,8 +679,7 @@ async def esegui_analisi_mcp(
                                     if conflitti:
                                         guida_azione = (
                                             f"[ATTENZIONE - RILEVATO MULTI-ATTACCO / PAREGGIO]: Trovato un punteggio paritario tra {conflitti} con score {max_val}.{note_multi_score} "
-                                            "Non limitarti a una sola minaccia. Ispeziona i log per confermare se si tratta di un attacco combinato "
-                                            "(es. Exploitation Web seguita da Beaconing C2) e documenta entrambe le componenti nel report."
+                                            "Il tool non ha risolto il pareggio: scegli UNA sola categoria in base a PPS/RPS/flussi grezzi e motivala."
                                         )
                                     elif score == 0.0:
                                         guida_azione = (
@@ -684,28 +821,54 @@ async def esegui_analisi_mcp(
                         continue
 
                     verdetto_estratto = engine.estrai_verdetto_pulito(testo_risposta)
-                    is_tentativo_chiusura = (verdetto_estratto == "BENIGN") or (not tool_calls)
+
+                    is_tentativo_chiusura = (
+                        verdetto_estratto in ("BENIGN", "NON_IDENTIFICATO")
+                        or (not tool_calls and verdetto_estratto not in config.CAT_ATTACCO)
+                    )
+
+                    if (
+                        ultimo_verdetto_chiusura is not None
+                        and not tool_eseguito_dopo_ultimo_verdetto
+                        and verdetto_estratto in prompts.VERDETTI_AMMESSI
+                        and verdetto_estratto != ultimo_verdetto_chiusura
+                    ):
+                        metriche_tempo["verdetti_ribaltati_senza_nuovo_tool"] += 1
+                        log_print(
+                            f" -> [TELEMETRIA]: Verdetto ribaltato senza nuovi tool nel turno {turno + 1}: "
+                            f"'{ultimo_verdetto_chiusura}' -> '{verdetto_estratto}'."
+                        )
+
+                    ultimo_verdetto_chiusura = verdetto_estratto
+                    tool_eseguito_dopo_ultimo_verdetto = False
 
                     ultimo_msg_utente = messages[-1]["content"] if messages and messages[-1].get("role") == "user" else ""
                     gia_avvisato_anti_fn = "ATTENZIONE - BLOCCO ANTI-FALSO NEGATIVO" in ultimo_msg_utente
 
                     if is_tentativo_chiusura and not gia_avvisato_anti_fn and engine._verifica_incoerenza_benign(risultati_tool_raccolti):
-                        anomalie_trovate = engine._ha_rilevato_anomalie_l7_reali(risultati_tool_raccolti)
-                        if anomalie_trovate:
-                            log_print(f" -> [AVVISO ANTI-FN TURNO {turno + 1}]: Chiusura bloccata per presenza di anomalie L7/C2 o DoS nei dati.")
-                            if testo_risposta.strip():
-                                messages.append({"role": "assistant", "content": testo_risposta})
-                                
-                            messages.append({
-                                "role": "user",
-                                "content": (
-                                    "ATTENZIONE - BLOCCO ANTI-FALSO NEGATIVO:\n"
-                                    "Stai tentando di concludere l'analisi senza rilevare minacce, ma i tool hanno evidenziato la presenza di flussi anomali.\n"
-                                    "Valuta attentamente i dati estratti prima di confermare. Se vi e' un attacco DoS, Web o Brute Force, assegna il verdetto corretto."
-                                )
-                            })
-                            turno += 1
-                            continue
+                        deroga_ok, motivo_deroga_loop = _deroga_benign_ammessa(testo_risposta, risultati_tool_raccolti)
+                        if deroga_ok:
+                            log_print(f" -> [DEROGA BENIGN AMMESSA NEL LOOP]: {motivo_deroga_loop}. Chiusura NON bloccata.")
+                        else:
+                            anomalie_trovate = engine._ha_rilevato_anomalie_l7_reali(risultati_tool_raccolti)
+                            if anomalie_trovate:
+                                log_print(f" -> [AVVISO ANTI-FN TURNO {turno + 1}]: Chiusura bloccata per presenza di anomalie L7/C2 o DoS nei dati.")
+                                if testo_risposta.strip():
+                                    messages.append({"role": "assistant", "content": testo_risposta})
+
+                                messages.append({
+                                    "role": "user",
+                                    "content": (
+                                        "ATTENZIONE - BLOCCO ANTI-FALSO NEGATIVO:\n"
+                                        "Stai tentando di concludere con BENIGN, ma i tool hanno evidenziato anomalie strutturali.\n"
+                                        "Prima di cambiare verdetto: se NON hai nuove evidenze rispetto a quelle già citate nel tuo "
+                                        "ragionamento precedente, NON cambiare conclusione solo per soddisfare questo avviso — "
+                                        "ripeti BENIGN e spiega esplicitamente perché l'anomalia segnalata non è pertinente. "
+                                        "Cambia verdetto SOLO se identifichi un dato specifico non ancora considerato."
+                                    )
+                                })
+                                turno += 1
+                                continue
 
                     log_print(f" -> [INFO]: Nessun ulteriore tool invocato e requisiti soddisfatti. Passo alla FASE REPORT FINALE (Verdetto: {verdetto_estratto or 'DISPONIBILE'}).")
                     stato_investigazione = "REPORT_FINALE"
@@ -807,6 +970,14 @@ async def esegui_analisi_mcp(
 
                         verdetto_grezzo_max_turni = engine.estrai_verdetto_pulito(testo_risposta)
                         if verdetto_grezzo_max_turni == "BENIGN" and engine._verifica_incoerenza_benign(risultati_tool_raccolti):
+                            deroga_pre_scarto_max_turni, _ = _deroga_benign_ammessa(testo_risposta, risultati_tool_raccolti)
+                        else:
+                            deroga_pre_scarto_max_turni = None
+
+                        if (verdetto_grezzo_max_turni == "BENIGN"
+                            and engine._verifica_incoerenza_benign(risultati_tool_raccolti)
+                            and deroga_pre_scarto_max_turni is False
+                        ):
                             log_print(
                                 " -> [ANTI-FN MAX TURNI]: Verdetto BENIGN a fine turni incoerente "
                                 "con le evidenze grezze raccolte (anomalia/flood/L7 rilevati). "
@@ -862,7 +1033,7 @@ async def esegui_analisi_mcp(
     # =========================================================================
     # FASE 2: GENERAZIONE REPORT FINALE (TOOL CALLING FORZATO)
     # =========================================================================
-    log_print(f" -> [DEBUG TRANSITO]: Passaggio alla Fase 2 con stato={stato_investigazione}")  ###
+    #log_print(f" -> [DEBUG TRANSITO]: Passaggio alla Fase 2 con stato={stato_investigazione}")  
 
     # Estrazione ultimo thought dell'assistant
     ultimo_thought = ""
@@ -904,8 +1075,41 @@ async def esegui_analisi_mcp(
         verdetto_vincolante_str = None
         motivo_scelta_cli = ""
         is_fallback_tool = False
+        forzato_da_guardia = False
 
-        if verdetto_thought in prompts.VERDETTI_AMMESSI:
+        benign_scartato = "[SCARTATO DAL SISTEMA" in thought_pulito
+        benign_tentato = (verdetto_thought == "BENIGN") or benign_scartato
+        conflitto_tool = _estrai_conflitto_tool(risultati_tool_raccolti)
+
+        deroga_ok, motivo_deroga = (False, "")
+        if verdetto_thought == "BENIGN" and not benign_scartato:
+            deroga_ok, motivo_deroga = _deroga_benign_ammessa(thought_pulito, risultati_tool_raccolti)
+            log_print(f" -> [DEROGA BENIGN]: {deroga_ok} ({motivo_deroga})")
+        elif benign_scartato and deroga_pre_scarto_max_turni is not None:
+            deroga_ok = deroga_pre_scarto_max_turni
+            motivo_deroga = "valutazione ereditata dal ramo max-turni (pre-scarto)"
+            log_print(f" -> [DEROGA BENIGN - EREDITATA DA MAX TURNI]: {deroga_ok}")
+
+        if benign_tentato and verdetto_suggerito_tool in config.CAT_ATTACCO and not deroga_ok:
+            verdetto_vincolante_str = verdetto_suggerito_tool
+            is_fallback_tool = False  # Stage 2 non potrà declassare a BENIGN
+            motivo_scelta_cli = f"Guard FN: BENIGN in contrasto con l'euristica ({verdetto_suggerito_tool})."
+            log_print(f" -> [GUARD FN]: BENIGN scartato, applico '{verdetto_vincolante_str}'.")
+            forzato_da_guardia = True
+
+        elif conflitto_tool and verdetto_thought not in config.CAT_ATTACCO:
+            corroborati = [c for c in conflitto_tool if _ha_evidenza_corroborante(c, risultati_tool_raccolti)]
+            candidati = corroborati or conflitto_tool
+            verdetto_vincolante_str = min(candidati, key=PRIORITA_DEFAULT.index)
+            is_fallback_tool = False   # Stage 2 non può declassare né cambiare categoria
+            forzato_da_guardia = True
+            motivo_scelta_cli = (
+                f"Guard FN: pareggio tra {conflitto_tool} non risolto dal tool e Thought dell'analista "
+                f"assente, non conclusivo o BENIGN (evidenza corroborata: {corroborati or 'nessuna'})."
+            )
+            log_print(f" -> [GUARD FN - CONFLITTO]: pareggio {conflitto_tool}, applico '{verdetto_vincolante_str}'.")
+
+        elif verdetto_thought in prompts.VERDETTI_AMMESSI:
             verdetto_vincolante_str = verdetto_thought
             motivo_scelta_cli = f"Autonomia LLM: Confermato verdetto proposto dal Thought dell'analista: '{verdetto_vincolante_str}'."
             log_print(f" -> [VERDETTO AUTONOMO LLM]: {verdetto_vincolante_str}")
@@ -915,13 +1119,27 @@ async def esegui_analisi_mcp(
             is_fallback_tool = True
             motivo_scelta_cli = f"Thought non esplicito. Applicato fallback dal calcolo Euristico Tool: '{verdetto_vincolante_str}'."
             log_print(f" -> [FALLBACK TOOL EURISTICO]: {verdetto_vincolante_str}")
+
         else:
             verdetto_vincolante_str = "BENIGN"
             is_fallback_tool = True
             motivo_scelta_cli = "Nessun verdetto identificato da LLM o Tool. Forzatura di sicurezza su BENIGN."
-            log_print(" ⚠️ [SAFETY FALLBACK EXTREME]: Verdetto forzato su BENIGN.")
+            if engine._ha_rilevato_anomalie_l7_reali(risultati_tool_raccolti):
+                motivo_scelta_cli += (
+                    " ATTENZIONE: i tool hanno rilevato anomalie strutturate (L7/L4/C2 o score >= 0.5): "
+                    "non confermare BENIGN senza confutarle esplicitamente con le evidenze."
+                )
+                log_print(" [SAFETY FALLBACK EXTREME]: BENIGN forzato MA con anomalie strutturate nei dati (L7/L4/C2 o score >= 0.5).")
+            else:
+                log_print(" [SAFETY FALLBACK EXTREME]: Verdetto forzato su BENIGN.")
 
         log_print(f"\n [VERDETTO FINALE RICHIESTO NEL JSON STAGE 2]: {verdetto_vincolante_str}\n")
+
+        if forzato_da_guardia:
+            thought_pulito = (
+                "[Thought di Stage 1 scartato: assente, non conclusivo o BENIGN in contrasto con "
+                "l'euristica del tool. Motiva il verdetto imposto usando solo le EVIDENZE OGGETTIVE.]"
+            )
 
         # LOOP DI EMISSIONE REPORT LLM CON RETRY
         stato_investigazione = "INCOMPLETE"
@@ -932,16 +1150,25 @@ async def esegui_analisi_mcp(
                 categoria_tag.lower(), "ANALISI GENERICA: nessun bias iniziale."
             )
 
-            nota_libertà = (
-                "NOTA: il verdetto di Stage 1 sopra è un FALLBACK EURISTICO AUTOMATICO — l'LLM non ha "
-                "prodotto un giudizio esplicito valido in Stage 1. Sei libero di rivalutarlo liberamente, "
-                "incluso verso BENIGN, se le evidenze grezze non lo confermano. In tal caso, fai iniziare "
-                "la motivazione con 'REVISIONE FALLBACK EURISTICO:'."
-                if is_fallback_tool else
-                "NOTA: il verdetto di Stage 1 sopra è un giudizio esplicito dell'analista LLM in Stage 1. "
-                "Puoi correggerlo verso un'altra categoria malevola (con prefisso 'CORREZIONE RISPETTO ALLO STAGE 1:'), "
-                "ma NON puoi declassarlo a BENIGN."
-            )
+            if forzato_da_guardia:
+                nota_libertà = (
+                    "NOTA: il verdetto di Stage 1 sopra è stato IMPOSTO DAL SISTEMA perché il Thought "
+                    "dell'analista era assente, non conclusivo o concludeva BENIGN in contrasto con "
+                    "l'euristica del tool. Non puoi declassarlo a BENIGN né cambiarlo: ricopialo nel "
+                    "campo 'verdetto' e motiva con le evidenze grezze."
+                )
+            elif is_fallback_tool:
+                nota_libertà = (
+                    "NOTA: il verdetto di Stage 1 sopra è un FALLBACK EURISTICO AUTOMATICO — l'LLM non ha "
+                    "prodotto un giudizio esplicito valido in Stage 1. Sei libero di rivalutarlo liberamente, "
+                    "incluso verso BENIGN, se le evidenze grezze non lo confermano. In tal caso, fai iniziare "
+                    "la motivazione con 'REVISIONE FALLBACK EURISTICO:'."
+                )
+            else:
+                nota_libertà = (
+                    "NOTA: il verdetto di Stage 1 sopra è un giudizio esplicito dell'analista LLM. "
+                    "Non puoi declassarlo a BENIGN né cambiarlo verso un'altra categoria: ricopialo nel campo 'verdetto'."
+                )
 
             regola_2_testo = (
                 "Poiché lo Stage 1 era un fallback euristico automatico (nessun giudizio esplicito "
@@ -951,6 +1178,13 @@ async def esegui_analisi_mcp(
                 "Se lo Stage 1 ha stabilito una categoria di attacco ('WEB_ATTACK_EXPLOIT', "
                 "'DOS_VOLUMETRIC', 'SCAN_BRUTEFORCE', 'BEACONING_C2'), è SEVERAMENTE VIETATO "
                 "declassare il verdetto finale a 'BENIGN'."
+            )
+
+            regola_3_testo = (
+                'CORREZIONI TRA CATEGORIE MALEVOLE: puoi correggere una categoria malevola con un\'altra; '
+                'la motivazione DEVE iniziare con "CORREZIONE RISPETTO ALLO STAGE 1:".'
+                if is_fallback_tool else
+                "NESSUNA CORREZIONE: il verdetto di Stage 1 va ricopiato identico, anche tra categorie di attacco."
             )
             
             prompt_corrente = textwrap.dedent(f"""
@@ -967,7 +1201,7 @@ async def esegui_analisi_mcp(
                 REGOLE TASSATIVE PER LA DETERMINAZIONE DEL JSON FINALE:
                 1. Il verdetto di Stage 1 '{verdetto_vincolante_str}' ha valore PREVALENTE.
                 2. {regola_2_testo}
-                3. CORREZIONI TRA CATEGORIE MALEVOLE: Puoi correggere una categoria malevole con un'altra. In questo caso, la motivazione DEVE iniziare tassativamente con "CORREZIONE RISPETTO ALLO STAGE 1:".
+                3. {regola_3_testo}
                 4. Se confermi il verdetto dello Stage 1, il campo "verdetto" DEVE essere esattamente "{verdetto_vincolante_str}".
 
                 EVIDENZE OGGETTIVE ESTRATTE DAI TOOL:
@@ -1030,7 +1264,6 @@ async def esegui_analisi_mcp(
             # RILEVAMENTO FORMATO TOOL-CALL VIETATO IN STAGE 2 
             # Alcuni modelli (es. Qwen) ricadono su una sintassi di tool-calling
             # appresa in training anche quando tools/tool_choice sono disattivati.
-            # Viene rifiutato esplicitamente qui, PRIMA del parsing JSON.
             pattern_tag_vietati = re.compile(
                 r"<\s*(tool_call|function|parameter)\b", re.IGNORECASE
             )
@@ -1068,11 +1301,9 @@ async def esegui_analisi_mcp(
                         is_correzione = (v_estratto != verdetto_vincolante_str)
                         ha_prefisso_corretto = mot_estratta.startswith("CORREZIONE RISPETTO ALLO STAGE 1:")
 
-                        CATEGORIE_ATTACCO = ("WEB_ATTACK_EXPLOIT", "DOS_VOLUMETRIC", "SCAN_BRUTEFORCE", "BEACONING_C2")
-
                         # Blocco Declassamento a BENIGN 
                         if (
-                            verdetto_vincolante_str in CATEGORIE_ATTACCO
+                            verdetto_vincolante_str in config.CAT_ATTACCO
                             and v_estratto == "BENIGN"
                             and not is_fallback_tool
                         ):
@@ -1083,7 +1314,7 @@ async def esegui_analisi_mcp(
                             ]
                             continue
                         elif (
-                            verdetto_vincolante_str in CATEGORIE_ATTACCO
+                            verdetto_vincolante_str in config.CAT_ATTACCO
                             and v_estratto == "BENIGN"
                             and is_fallback_tool
                         ):
@@ -1097,8 +1328,8 @@ async def esegui_analisi_mcp(
                         elif (
                             is_correzione
                             and not is_fallback_tool
-                            and verdetto_vincolante_str in CATEGORIE_ATTACCO
-                            and v_estratto in CATEGORIE_ATTACCO
+                            and verdetto_vincolante_str in config.CAT_ATTACCO
+                            and v_estratto in config.CAT_ATTACCO
                         ):
                             log_print(
                                 f" -> [REJECT STAGE 2]: Bloccato cambio categoria da '{verdetto_vincolante_str}' "
@@ -1121,7 +1352,7 @@ async def esegui_analisi_mcp(
 
                         elif (
                             verdetto_vincolante_str == "BENIGN"
-                            and v_estratto in CATEGORIE_ATTACCO
+                            and v_estratto in config.CAT_ATTACCO
                             and not is_fallback_tool
                         ):
                             log_print(f" -> [REJECT STAGE 2]: Bloccato tentativo di promuovere da 'BENIGN' (giudizio Stage 1 esplicito) a '{v_estratto}'.")
@@ -1172,7 +1403,10 @@ async def esegui_analisi_mcp(
                             "ip_target": ip_target,
                             "verdetto_stage_1": verdetto_vincolante_str,
                             "is_corretto_in_stage_2": is_correzione,
-                            "verdetto_suggerito_tool": verdetto_suggerito_tool
+                            "verdetto_suggerito_tool": verdetto_suggerito_tool,
+                            "verdetto_thought_llm": verdetto_thought,
+                            "forzato_da_guardia": forzato_da_guardia,
+                            "stage_1_e_fallback": is_fallback_tool,
                         }, indent=2, ensure_ascii=False)
                         
                         stato_investigazione = "COMPLETED"
@@ -1198,6 +1432,7 @@ async def esegui_analisi_mcp(
     # =========================================================================
     # USCITA UNICA DALLA FUNZIONE
     # =========================================================================
+    metriche_tempo["tool_eseguiti"] = len(risultati_tool_raccolti)
     return {
         "stato": stato_investigazione,
         "verdetto": verdetto_finale or verdetto_vincolante_str,
