@@ -335,6 +335,21 @@ def _verifica_incoerenza_benign(risultati_tool: list) -> bool:
     anomalia_strutturata = False
 
     for res in risultati_tool or []:
+        if isinstance(res, dict) and res.get("tool_name") == "compute_verdict_scores":
+            try:
+                d = json.loads(res["result"])
+                sc = [float(d.get(c) or 0) for c in
+                    ("DOS_VOLUMETRIC", "SCAN_BRUTEFORCE", "BEACONING_C2", "WEB_ATTACK_EXPLOIT")]
+                if (
+                    "verdetto_suggerito_euristica" in d   
+                    and max(sc) < 0.5
+                    and not d.get("conflitto_a_pari_merito")
+                ):
+                    return False  # l'euristica ha già riletto e respinto i flag grezzi
+            except Exception:
+                pass
+
+    for res in risultati_tool or []:
         testo = res.get("result") if isinstance(res, dict) else None
         if not isinstance(testo, str):
             continue
@@ -490,10 +505,21 @@ def _ha_rilevato_anomalie_l7_reali(risultati_tool_raccolti: list) -> bool:
 
         if int(sintesi.get("anomalie_l7_trovate") or 0) > 0:
             return True
-        if sintesi.get("sospetto_web_bruteforce") and int(sintesi.get("max_tentativi_per_ip") or 0) > 0:
-            return True
         if sintesi.get("login_endpoint_targeted"):
             return True
+        if sintesi.get("sospetto_web_bruteforce") and int(sintesi.get("max_tentativi_per_ip") or 0) > 0:
+            http_req_rate_val = float(sintesi.get("http_req_rate") or 0.0)
+            anomalie_entropia_val = int(sintesi.get("anomalie_entropia_trovate") or 0)
+            soglia_rate_corroborazione = getattr(
+                config.Soglie, "WEBBF_HTTP_REQ_RATE_MIN_CORROBORAZIONE", 0.5
+            )
+            corroborato = (
+                sintesi.get("login_endpoint_targeted")
+                or anomalie_entropia_val > 0
+                or http_req_rate_val >= soglia_rate_corroborazione
+            )
+            if corroborato:
+                return True
         if sintesi.get("sospetto_portscan") or sintesi.get("sospetto_bruteforce"):
             return True
         if sintesi.get("beaconing_c2_rilevato"):
@@ -569,7 +595,6 @@ def estrai_verdetto_pulito(*args) -> str:
     # Estrazione mirata dei blocchi ```json ... ```
     json_blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", testo)
     
-    # FIX ERRORE SINTASSI (regex bilanciata per catturare qualsiasi struttura { ... })
     if not json_blocks:
         json_blocks = re.findall(r"\{[\s\S]*?\}", testo)
 
@@ -641,7 +666,7 @@ def estrai_verdetto_pulito(*args) -> str:
 
 def estrai_suggerimento_tool(risultati_tool_raccolti: list) -> tuple[str, str]:
     """
-    Estrae il verdetto vincente unicamente
+    Versione PULITA e RIGIDA: estrae il verdetto vincente unicamente
     in base ai punteggi numerici restituite da compute_verdict_scores.
     Nessun override arbitrario basato su stringhe.
     """
