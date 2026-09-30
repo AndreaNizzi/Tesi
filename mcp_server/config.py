@@ -160,8 +160,20 @@ class Soglie:
     SWEEP_DESTINAZIONI_MAX = 15 
 
 PROVIDER_REPUTATI = {
-    "google", "cloudflare", "akamai", "microsoft", "amazon", "aws", "fastly",
-    "edgecast", "cloudfront", "canonical", "ubuntu", "apple", "mozilla",
+    # Cloud hyperscaler
+    "google", "googlecloud", "microsoft", "azure", "amazon", "aws",
+    "oracle", "oraclecloud", "ibm", "alibaba", "alibabacloud", "tencent",
+    # CDN / Edge
+    "cloudflare", "akamai", "fastly", "edgecast", "cloudfront",
+    "stackpath", "limelight",
+    # OS vendors / update infra
+    "canonical", "ubuntu", "apple", "mozilla",
+    # SaaS con heartbeat applicativo legittimo
+    "anthropic", "openai", "slack", "atlassian", "github", "gitlab",
+    "dropbox", "box", "zoom", "notion", "figma", "salesforce",
+    "okta", "auth0", "duo", "zscaler",
+    # Servizi di messaggistica/telemetria noti
+    "telegram", "whatsapp", "meta", "facebook",
 }
 CAT_ATTACCO = {"WEB_ATTACK_EXPLOIT", "DOS_VOLUMETRIC", "SCAN_BRUTEFORCE", "BEACONING_C2"}
 
@@ -179,4 +191,3 @@ TOOL_OBBLIGATORI: Set[str] = {
 }
 tool_chiamati: Set[str] = set()
 tool_obbligatori_str = ", ".join(f"'{t}'" for t in TOOL_OBBLIGATORI)
-
