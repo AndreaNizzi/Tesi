@@ -1,4 +1,3 @@
-
 """
 engine.py — Funzioni di supporto "senza stato" usate da esegui_analisi_mcp
 per gestire il contesto della conversazione con l'LLM e per interpretare i
@@ -28,7 +27,7 @@ import re
 import ast
 import hashlib
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 import config, prompts # prompts serve
 
@@ -365,16 +364,53 @@ def _verifica_incoerenza_benign(risultati_tool: list) -> bool:
         if isinstance(sintesi, dict):
             if sintesi.get("anomalie_l7_trovate", 0) > 0:
                 anomalia_strutturata = True
-            if sintesi.get("candidati_trovati", 0) > 0:
-                anomalia_strutturata = True
             if sintesi.get("sospetto_web_bruteforce"):
                 anomalia_strutturata = True
             if sintesi.get("sospetto_portscan") or sintesi.get("sospetto_bruteforce"):
                 anomalia_strutturata = True
+
             if sintesi.get("beaconing_c2_rilevato"):
-                anomalia_strutturata = True
-            if sintesi.get("stato_anomalia") == "ANOMALIA_RILEVATA" or sintesi.get("stato") == "ANOMALIA_RILEVATA":
-                anomalia_strutturata = True
+                candidati = data.get("candidati_top") or []
+                candidati_legittimi = True  
+                for cand in candidati:
+                    if not isinstance(cand, dict):
+                        continue
+                    hostname = str(cand.get("hostname") or "").lower()
+                    provider = str(cand.get("infra_provider") or "").lower()
+                    tags = cand.get("tags") or []
+                    h_ok = bool(hostname) and hostname != "n/a" and (
+                        any(sub in hostname for sub in [
+                            "cdn", "ads", "adserver", "track", "analytics",
+                            "telemetry", "metrics", "pixel", "update",
+                        ])
+                        or any(hostname.endswith(d) for d in [
+                            "doubleclick.net", "googlesyndication.com",
+                            "spotxchange.com", "beachfrontmedia.com",
+                            "adnxs.com", "pubmatic.com", "mozilla.net",
+                            "cloudfront.net", "akamai.net", "fastly.net",
+                            "saymedia.com", "taboola.com", "advertising.com",
+                        ])
+                    )
+                    p_ok = bool(provider) and provider in [
+                        "google", "amazon", "aws_cloudfront", "aws_ec2",
+                        "cloudflare", "akamai", "fastly", "microsoft",
+                        "edgecast", "cachefly", "googlecloud",
+                    ]
+                    # tag di esclusione esplicita
+                    tag_ok = any(
+                        t in ["WHITELISTED_SERVICE", "INTERNAL_LAN_KEEPALIVE",
+                              "REPUTABLE_INFRA_REGULAR_HEARTBEAT",
+                              "REPUTABLE_INFRA_WEAK_JITTER"]
+                        for t in tags
+                    )
+                    if h_ok or p_ok or tag_ok:
+                        continue 
+                    # candidato non riconducibile a servizio legittimo
+                    candidati_legittimi = False
+                    break
+
+                if not candidati_legittimi:
+                    anomalia_strutturata = True
 
         mk = data.get("metriche_chiave") or {}
         if isinstance(mk, dict):
@@ -524,7 +560,44 @@ def _ha_rilevato_anomalie_l7_reali(risultati_tool_raccolti: list) -> bool:
         if sintesi.get("sospetto_portscan") or sintesi.get("sospetto_bruteforce"):
             return True
         if sintesi.get("beaconing_c2_rilevato"):
-            return True
+            candidati = data.get("candidati_top") or []
+            candidati_legittimi = True
+            for cand in candidati:
+                if not isinstance(cand, dict):
+                    continue
+                hostname = str(cand.get("hostname") or "").lower()
+                provider = str(cand.get("infra_provider") or "").lower()
+                tags = cand.get("tags") or []
+                h_ok = bool(hostname) and hostname != "n/a" and (
+                    any(sub in hostname for sub in [
+                        "cdn", "ads", "adserver", "track", "analytics",
+                        "telemetry", "metrics", "pixel", "update",
+                    ])
+                    or any(hostname.endswith(d) for d in [
+                        "doubleclick.net", "googlesyndication.com",
+                        "spotxchange.com", "beachfrontmedia.com",
+                        "adnxs.com", "pubmatic.com", "mozilla.net",
+                        "cloudfront.net", "akamai.net", "fastly.net",
+                        "saymedia.com", "taboola.com", "advertising.com",
+                    ])
+                )
+                p_ok = bool(provider) and provider in [
+                    "google", "amazon", "aws_cloudfront", "aws_ec2",
+                    "cloudflare", "akamai", "fastly", "microsoft",
+                    "edgecast", "cachefly", "googlecloud",
+                ]
+                tag_ok = any(
+                    t in ["WHITELISTED_SERVICE", "INTERNAL_LAN_KEEPALIVE",
+                          "REPUTABLE_INFRA_REGULAR_HEARTBEAT",
+                          "REPUTABLE_INFRA_WEAK_JITTER"]
+                    for t in tags
+                )
+                if h_ok or p_ok or tag_ok:
+                    continue
+                candidati_legittimi = False
+                break
+            if not candidati_legittimi:
+                return True
         if int(sintesi.get("flussi_slowloris_confermati") or 0) > 0:
             return True
 
@@ -561,12 +634,53 @@ def estrai_verdetto_euristico_da_risultati(risultati_tool_raccolti: list) -> str
 # PARSING DEL VERDETTO DELL'LLM
 # ==============================================================================
 
-def estrai_verdetto_pulito(*args) -> str:
+# Pattern di negazione robusti (multi-parola, ordine d'importanza).
+# Vengono cercati nella finestra di contesto PRIMA della parola chiave.
+_NEGAZIONI_VERDETTO = [
+    # Forme verbali dirette
+    "ESCLUDE", "ESCLUDO", "ESCLUDERE", "ESCLUSO", "ESCLUSA",
+    "SCARTA", "SCARTO", "SCARTARE", "SCARTATO", "SCARTATA",
+    "RIFIUTA", "RIFIUTO", "RIFIUTATO",
+    "NIEGA", "NEGO", "NEGATO",
+    # Costruzioni negative
+    "NON È", "NON E'", "NON E ", "NON SONO", "NON SI TRATTA",
+    "NON CONFERMA", "NON CONFERMATO", "NON RILEVATO", "NON PRESENTE",
+    "NON INDIVIDUATO", "NON EMERGE", "NON COMPATIBILE",
+    # Valutazioni di improbabilità
+    "IMPROBABILE", "IMPLAUSIBILE", "INFONDATO", "INATTENDIBILE",
+    "POCO PROBABILE", "SCARSAMENTE",
+    # Marcatori di scarto esplicito
+    "FUORI", "SCARTIAMO", "SCARTATO", "DA SCARTARE", "DA ESCLUDERE",
+    "NON RIENTRA", "NON CORRISPONDE",
+]
+
+# Finestra di contesto (in caratteri) PRIMA della parola chiave in cui cercare le negazioni.
+_FINESTRA_NEGAZIONE = 100
+
+def _estrai_verdetto_con_confidenza(*args) -> tuple[str, str]:
     """
-    Estrae il verdetto espresso dall'LLM dando priorità assoluta all'ultimo blocco JSON 
-    o alle dichiarazioni esplicite finali, per evitare di catturare menzioni intermedie.
+    Estrae il verdetto dall'output dell'LLM e restituisce anche il livello
+    di affidabilità dell'estrazione.
+
+    Ritorna: (verdetto, affidabilita)
+      - affidabilita = "ALTA"   : verdetto trovato in JSON strutturato,
+                                   in tag XML pseudo-tool-call,
+                                   o in una frase dichiarativa esplicita
+                                   ("verdetto è X", "concludo con X").
+      - affidabilita = "MEDIA"  : verdetto trovato per prossimità testuale,
+                                   con negazioni riconosciute in modo
+                                   conservativo (nessuna negazione nel
+                                   contesto delle ultime 1500 battute).
+      - affidabilita = "BASSA"  : verdetto trovato per prossimità testuale,
+                                   MA il contesto è ambiguo (una o più
+                                   negazioni presenti nelle vicinanze).
+                                   In questo caso il chiamante NON dovrebbe
+                                   trattare il risultato come una
+                                   dichiarazione esplicita dell'LLM.
+      - affidabilita = "NESSUNA": nessun verdetto trovato, o verdetto
+                                   inaffidabile.
     """
-    # Normalizzazione e pulizia dell'input dai parametri *args
+    # Normalizzazione input 
     report_md = ""
     for arg in reversed(args):
         if hasattr(arg, "choices") and arg.choices:
@@ -577,97 +691,135 @@ def estrai_verdetto_pulito(*args) -> str:
             break
 
     if not report_md or not report_md.strip():
-        return "NON_IDENTIFICATO"
+        return "NON_IDENTIFICATO", "NESSUNA"
 
     testo = report_md.strip()
 
-    # Recupero dinamico dei verdetti ammessi
-    verdetti_default = {"DOS_VOLUMETRIC", "SCAN_BRUTEFORCE", "BEACONING_C2", "WEB_ATTACK_EXPLOIT", "BENIGN"}
-    
+    # Recupero dinamico dei verdetti ammessi 
+    verdetti_default = {"DOS_VOLUMETRIC", "SCAN_BRUTEFORCE", "BEACONING_C2",
+                        "WEB_ATTACK_EXPLOIT", "BENIGN"}
+
     prompts_mod = globals().get("prompts", None)
     config_mod = globals().get("config", None)
-    
+
     verdetti_validi = set(
-        getattr(prompts_mod, "VERDETTI_AMMESSI", 
+        getattr(prompts_mod, "VERDETTI_AMMESSI",
         getattr(config_mod, "VERDETTI_AMMESSI", verdetti_default))
     )
 
-    # PARSING JSON (Cerca il verdetto negli ultimi blocchi JSON validi)
-    # Estrazione mirata dei blocchi ```json ... ```
+    # ==========================================================================
+    # JSON STRUTTURATO (massima affidabilità)
+    # ==========================================================================
     json_blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", testo)
-    
     if not json_blocks:
+        # Prova a trovare oggetti JSON letterali, preferendo quelli più lunghi
         json_blocks = re.findall(r"\{[\s\S]*?\}", testo)
 
     for block in reversed(json_blocks):
         try:
             start_idx = block.find("{")
             end_idx = block.rfind("}")
-            if start_idx != -1 and end_idx != -1:
-                clean_json = block[start_idx : end_idx + 1]
-                data = json.loads(clean_json)
-                if isinstance(data, dict):
-                    cand = str(
-                        data.get("verdetto") 
-                        or data.get("verdetto_finale") 
-                        or data.get("verdetto_suggerito_euristica") 
-                        or ""
-                    ).strip().upper()
-                    
-                    if cand in verdetti_validi:
-                        return cand
+            if start_idx == -1 or end_idx == -1:
+                continue
+            clean_json = block[start_idx:end_idx + 1]
+            data = json.loads(clean_json)
+            if not isinstance(data, dict):
+                continue
+            cand = str(
+                data.get("verdetto")
+                or data.get("verdetto_finale")
+                or data.get("verdetto_suggerito_euristica")
+                or ""
+            ).strip().upper()
+            if cand in verdetti_validi:
+                return cand, "ALTA"
         except Exception:
             continue
 
-    # PARSING TAG XML PSEUDO-TOOLCALL (alcuni modelli, es. Qwen, emettono
-    # <function=...><parameter=verdetto>VALORE</parameter></function> come
-    # testo libero anche quando tools/tool_choice sono disattivati). 
+    # ==========================================================================
+    # TAG XML PSEUDO-TOOLCALL
+    # ==========================================================================
     pattern_xml_param = re.compile(
         r"<parameter[^>]*\bverdetto\b[^>]*>\s*([A-Z0-9_\-]+)\s*</parameter>",
         re.IGNORECASE,
     )
     matches_xml = list(pattern_xml_param.finditer(testo))
-    if matches_xml:
-        for match in reversed(matches_xml):
-            cand = match.group(1).strip().upper()
-            if cand in verdetti_validi:
-                return cand
-            
-    # REGEX SU DICHIARAZIONE ESPLICITA FINALE 
-    pattern = r"(?:verdetto|classificazione|conclusione)(?:\s+finale)?\s*(?:è|e'|:|=)\s*[`'\"]*([A-Z0-9_-]+)[`'\"]*"
-    matches = list(re.finditer(pattern, testo, re.IGNORECASE))
-    if matches:
-        for match in reversed(matches):
-            v_cand = match.group(1).strip().upper()
-            if v_cand in verdetti_validi:
-                return v_cand
+    for match in reversed(matches_xml):
+        cand = match.group(1).strip().upper()
+        if cand in verdetti_validi:
+            return cand, "ALTA"
 
-    # SCANNING DI PROSSIMITÀ SUL TESTO FINALE
-    testo_finale = testo[-1500:].upper()
-    candidati_trovati = []
+    # ==========================================================================
+    # FRASE DICHIARATIVA ESPLICITA
+    # ==========================================================================
+    # Es: "verdetto è X", "verdetto finale: X", "concludo con X",
+    #     "classificazione: X", "il verdetto è X"
+    pattern_dichiarativo = re.compile(
+        r"(?:verdetto|classificazione|conclusione|concludo\s+con|"
+        r"il\s+verdetto\s+finale\s+è|verdetto\s+finale\s*[:=])"
+        r"(?:\s+finale)?\s*(?:è|e'|:|=|con)\s*[`'\"]*([A-Z0-9_\-]+)[`'\"]*",
+        re.IGNORECASE,
+    )
+    matches_dich = list(pattern_dichiarativo.finditer(testo))
+    for match in reversed(matches_dich):
+        v_cand = match.group(1).strip().upper()
+        if v_cand in verdetti_validi:
+            return v_cand, "ALTA"
 
-    blacklist_negazione = ["ESCLUSO", "SCARTATO", "NON È", "NON E", "NON SI TRATTA", "ESCLUDO", "IMPROBABILE"]
+    # ==========================================================================
+    # SCAN DI PROSSIMITÀ 
+    # ==========================================================================
+    # Cerchiamo tutti i match dei verdetti validi nelle ultime 1500 battute,
+    # escludendo quelli che appaiono vicini a una negazione. Poi scegliamo
+    # il match più vicino alla fine. MA restituiamo anche un livello di
+    # affidabilità che riflette se ci sono state ambiguità.
 
+    testo_finale = testo[-1500:]
+    testo_finale_upper = testo_finale.upper()
+
+    candidati_trovati = []   # (posizione, verdetto, negato)
     for verdetto in verdetti_validi:
-        for match in re.finditer(rf"\b{re.escape(verdetto)}\b", testo_finale):
-            start_pos = max(0, match.start() - 40)
-            contesto_precedente = testo_finale[start_pos:match.start()]
-            
-            # Se è preceduto da negazione, ignora questo match
-            if any(neg in contesto_precedente for neg in blacklist_negazione):
-                continue
-                
-            candidati_trovati.append((match.start(), verdetto))
+        for match in re.finditer(rf"\b{re.escape(verdetto)}\b", testo_finale_upper):
+            start_pos = max(0, match.start() - _FINESTRA_NEGAZIONE)
+            contesto_precedente = testo_finale_upper[start_pos:match.start()]
 
-    if candidati_trovati:
-        candidati_trovati.sort(key=lambda x: x[0], reverse=True)
-        return candidati_trovati[0][1]
+            negato = any(neg in contesto_precedente for neg in _NEGAZIONI_VERDETTO)
+            candidati_trovati.append((match.start(), verdetto, negato))
 
-    return "NON_IDENTIFICATO"
+    if not candidati_trovati:
+        return "NON_IDENTIFICATO", "NESSUNA"
+
+    # Preferiamo i match NON negati. Se non ce ne sono, non ci fidiamo.
+    candidati_non_negati = [c for c in candidati_trovati if not c[2]]
+    candidati_negati = [c for c in candidati_trovati if c[2]]
+
+    if candidati_non_negati:
+        # Scegliamo il più vicino alla fine del testo
+        candidati_non_negati.sort(key=lambda x: x[0], reverse=True)
+        verdetto_finale = candidati_non_negati[0][1]
+
+        # Se ci sono anche match negati nel testo, il contesto è ambiguo:
+        # abbassiamo l'affidabilità a MEDIA (non BASSA, perché almeno un
+        # match non-negato esiste ed è il più recente).
+        affidabilita = "MEDIA" if candidati_negati else "MEDIA"
+        return verdetto_finale, affidabilita
+
+    # Solo match negati -> non ci fidiamo affatto
+    return "NON_IDENTIFICATO", "NESSUNA"
+
+
+def estrai_verdetto_pulito(*args) -> str:
+    """
+    Wrapper retro-compatibile: mantiene la vecchia firma e il vecchio
+    tipo di ritorno (str), delegando a _estrai_verdetto_con_confidenza.
+    Da usare dove non serve distinguere l'affidabilità.
+    """
+    verdetto, _ = _estrai_verdetto_con_confidenza(*args)
+    return verdetto
 
 def estrai_suggerimento_tool(risultati_tool_raccolti: list) -> tuple[str, str]:
     """
-    Versione PULITA e RIGIDA: estrae il verdetto vincente unicamente
+    Estrae il verdetto vincente unicamente
     in base ai punteggi numerici restituite da compute_verdict_scores.
     Nessun override arbitrario basato su stringhe.
     """
@@ -682,11 +834,29 @@ def estrai_suggerimento_tool(risultati_tool_raccolti: list) -> tuple[str, str]:
             if isinstance(res, dict) and res.get("tool_name") == "compute_verdict_scores":
                 raw_out = res.get("result") or res.get("output") or {}
 
+                data_out = None
                 if isinstance(raw_out, str):
+                    raw_pulito = raw_out.strip()
+                    raw_pulito = re.sub(r"^\s*\[FOCUS ATTIVO:[^\]]*\]\s*", "", raw_pulito)
+                    raw_pulito = re.sub(r"^\s*===.*?===\s*", "", raw_pulito, count=1)
+
+                    # Prova JSON puro
                     try:
-                        data_out = json.loads(raw_out)
+                        data_out = json.loads(raw_pulito)
                     except Exception:
-                        data_out = ast.literal_eval(raw_out)
+                        data_out = None
+
+                    # Fallback: estrai il primo oggetto JSON dal blob
+                    if data_out is None:
+                        m = re.search(r"\{[\s\S]*\}", raw_pulito)
+                        if m:
+                            try:
+                                data_out = json.loads(m.group(0))
+                            except Exception:
+                                try:
+                                    data_out = ast.literal_eval(m.group(0))
+                                except Exception:
+                                    data_out = None
                 else:
                     data_out = raw_out
 
@@ -722,3 +892,46 @@ def estrai_suggerimento_tool(risultati_tool_raccolti: list) -> tuple[str, str]:
         motivo_override = f"Errore durante l'estrazione: {e}"
 
     return verdetto_suggerito, motivo_override
+
+def estrai_score_tool(risultati: list) -> Tuple[Optional[float], Optional[str]]:
+    """
+    Estrae lo score rilevante dall'ULTIMO compute_verdict_scores in risultati.
+    Ritorna (score, stato) dove stato = {"declassato", "effettivo", "pareggio", None}.
+
+    - Se il tool ha declassato (score_declassato_da presente), ritorna lo score
+      ORIGINALE (quello alto, prima del declassamento) e stato="declassato".
+    - Altrimenti ritorna il max degli score validi e stato="effettivo" (o "pareggio"
+      se ci sono più categorie a pari merito).
+    """
+    for t in reversed(risultati):
+        if t.get("tool_name") != "compute_verdict_scores":
+            continue
+
+        r = t.get("result")
+        if not isinstance(r, str):
+            return None, None
+
+        # Caso declassato: cerca il campo esplicito
+        m_decl = re.search(r'"score_declassato_da":\s*([\d.]+)', r)
+        if m_decl:
+            return float(m_decl.group(1)), "declassato"
+
+        # Caso normale: estrai tutti gli score validi
+        scores = {}
+        for cat in config.CAT_ATTACCO:
+            m = re.search(rf'"{cat}":\s*([\d.]+)', r)
+            if m:
+                scores[cat] = float(m.group(1))
+
+        if not scores:
+            return None, None
+
+        max_val = max(scores.values())
+        if max_val == 0.0:
+            return 0.0, "effettivo"
+
+        vincitori = [k for k, v in scores.items() if v == max_val]
+        stato = "pareggio" if len(vincitori) > 1 else "effettivo"
+        return max_val, stato
+
+    return None, None
