@@ -443,4 +443,3 @@ def stampa_e_salva_metriche(stats: Dict[str, int], output_dir: Path, timestamp: 
         f_txt.write(recap_txt)
 
     print(f"Metriche e Matrice salvate in:\n  -> {json_summary_path}\n  -> {txt_summary_path}\n")
-
