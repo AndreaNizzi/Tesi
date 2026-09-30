@@ -1292,7 +1292,6 @@ async def esegui_analisi_mcp(
                                 )
                                 contenuto_deroga = response_deroga.choices[0].message.content or ""
 
-                                import re as _re
                                 json_match = _re.search(r"\{[\s\S]*\}", contenuto_deroga)
                                 if json_match:
                                     data_deroga = json.loads(json_match.group(0).strip())
@@ -1463,7 +1462,6 @@ async def esegui_analisi_mcp(
             
             if not deroga_ok:
                 thought_lower = (thought_pulito or "").lower()
-                import re as _re
                 m_conn = _re.search(r'(\d+)\s*connessioni', thought_lower)
                 conn_val = int(m_conn.group(1)) if m_conn else 999
                 m_cv = _re.search(r'cv\s*[=:]\s*(\d+\.\d+|\d+)', thought_lower)
