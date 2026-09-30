@@ -1,4 +1,3 @@
-
 """
 client.py — Orchestratore dell'indagine: collega l'LLM (via API OpenAI-compatible)
 al server MCP (server.py) e guida il ciclo di tool-calling fino al verdetto finale.
@@ -18,6 +17,7 @@ DA CHI VIENE CHIAMATO:
 import os
 import gc
 import re
+import re as _re
 import sys
 import json
 import time
@@ -239,6 +239,23 @@ async def esegui_analisi_mcp(
                 score = _num(r'"anomaly_score":\s*(\d+)', r)
                 if score >= s.ANOMALY_SCORE_C2_MIN:
                     return True
+                if '"CONFIRMED_BEACONING_C2"' in r:
+                    return True
+                if re.search(r'"dst_port":\s*(8080|8443|1080|4444|5555)', r) and \
+                re.search(r'"hostname":\s*"N/A"', r):
+                    return True
+                cv_match = re.search(r'"cv":\s*([\d.]+|null)', r)
+                tot_match = re.search(r'"totale_connessioni":\s*(\d+)', r)
+                porta_match = re.search(r'"dst_port":\s*(\d+)', r)
+                if cv_match and tot_match and porta_match:
+                    cv_val = float(cv_match.group(1))
+                    tot_val = int(tot_match.group(1))
+                    porta_val = int(porta_match.group(1))
+                    porta_c2 = porta_val in s.PORTE_C2_SOSPETTE
+                    if cv_val <= 0.05 and porta_c2 and tot_val >= 5:
+                        return True
+                    if cv_val <= 0.05 and tot_val >= s.BEACON_MIN_CONNESSIONI:
+                        return True
             return False
 
         if verdetto == "WEB_ATTACK_EXPLOIT":
@@ -276,42 +293,112 @@ async def esegui_analisi_mcp(
         def _num(p, t, d=0.0):
             m = re.search(p, t)
             return float(m.group(1)) if m else d
+
         for t in risultati:
             r = t.get("result")
             if not isinstance(r, str):
                 continue
-            if _num(r'"anomalie_l7_trovate":\s*(\d+)', r) > 0 or _num(r'"anomalie_entropia_trovate":\s*(\d+)', r) > 0:
-                return True, "anomalie L7/entropia"
+
+            # Entropia: conta SOLO se ci sono più anomalie O se è confermata da altri segnali
+            ent = _num(r'"anomalie_entropia_trovate":\s*(\d+)', r)
+            l7 = _num(r'"anomalie_l7_trovate":\s*(\d+)', r)
+            fweb = _num(r'"flussi_web_esaminati":\s*(\d+)', r)
+            # Sola anomalia su centinaia di flussi NON è evidenza dura
+            if l7 > 0 and (l7 >= 3 or (fweb > 0 and l7 / max(fweb, 1) > 0.02)):
+                return True, f"anomalie L7 significative ({l7}/{fweb})"
+            if ent > 0 and (ent >= 3 or _num(r'"login_endpoint_targeted":\s*true', r) > 0):
+                return True, f"anomalie entropia significative ({ent})"
+
             if '"login_endpoint_targeted": true' in r:
                 return True, "endpoint di login"
+
             if _num(r'"flussi_slowloris":\s*(\d+)', r) >= s.SLOWLORIS_FLUSSI_MIN:
                 return True, "Slowloris"
-            if max(_num(r'"pps_aggregati":\s*([\d.]+)', r), _num(r'"burst_pps":\s*([\d.]+)', r)) >= s.DOS_PPS_MIN_FALLBACK:
-                return True, "PPS sopra soglia"
-            if _num(r'"flussi_web_totali":\s*(\d+)', r) >= s.DOS_L7_FLUSSI_ASSOLUTI_MIN or _num(r'"web_rps":\s*([\d.]+)', r) >= s.DOS_L7_RPS_MIN:
-                return True, "volume/RPS web"
-            if "SOSPETTO_BRUTEFORCE" in r or ("SOSPETTO_PORTSCAN" in r and _num(r'"porte_uniche_contattate":\s*(\d+)', r) >= s.SCAN_PORTE_MIN):
+
+            pps_val = max(_num(r'"pps_aggregati":\s*([\d.]+)', r),
+              _num(r'"burst_pps":\s*([\d.]+)', r))
+            if pps_val >= s.DOS_PPS_MIN: 
+                return True, "PPS sopra soglia piena"
+            if pps_val >= s.DOS_PPS_MIN_FALLBACK:
+                dest_web = _num(r'"destinazioni_web_distinte":\s*(\d+)', r)
+                fweb = _num(r'"flussi_web_totali":\s*(\d+)', r)
+                if fweb > 0 and fweb / max(dest_web, 1) > 10:  # concentrazione > 10 flussi per destinazione
+                    return True, "PPS sopra fallback con traffico concentrato"
+
+            fweb_tot = _num(r'"flussi_web_totali":\s*(\d+)', r)
+            rps_val = _num(r'"web_rps":\s*([\d.]+)', r)
+            if rps_val >= s.DOS_L7_RPS_MIN:
+                return True, "RPS web sopra soglia"
+            if fweb_tot >= s.DOS_L7_FLUSSI_ASSOLUTI_MIN:
+                # Volume web elevato: è evidenza dura SOLO se concentrato su poche destinazioni.
+                # Se distribuito (concentrazione < 10), è browsing normale.
+                dest_web = _num(r'"destinazioni_web_distinte":\s*(\d+)', r)
+                if dest_web > 0 and fweb_tot / dest_web > 10:
+                    return True, "volume web concentrato"
+
+            if "SOSPETTO_BRUTEFORCE" in r or (
+                "SOSPETTO_PORTSCAN" in r
+                and _num(r'"porte_uniche_contattate":\s*(\d+)', r) >= s.SCAN_PORTE_MIN
+            ):
                 return True, "scan/bruteforce L4"
-            if "CONFIRMED_BEACONING_C2" in r:
-                return True, "beaconing con CV stretto"
+
         return False, ""
 
     def _deroga_benign_ammessa(thought: str, risultati: list) -> Tuple[bool, str]:
         if _estrai_conflitto_tool(risultati):
             return False, "pareggio non risolto"
-        dura, motivo = _evidenza_dura(risultati)
-        if dura:
-            return False, f"evidenza dura presente: {motivo}"
-        nomi = set()
+
+        candidati_c2 = []
         for t in risultati:
             r = str(t.get("result") or "")
-            for h in re.findall(r'"(?:hostname|ndpi_hostname|infra_provider)":\s*"([^"]+)"', r):
-                if h and h.upper() != "N/A":
-                    nomi.add(h.lower())
-        citati = [n for n in nomi if n in (thought or "").lower() and _hostname_e_legittimo(n)]
+            if '"beaconing_c2_rilevato": true' not in r:
+                continue
+            for m in re.finditer(
+                r'"dst_ip":\s*"([^"]+)"[^}]*?"dst_port":\s*(\d+)[^}]*?'
+                r'"hostname":\s*"([^"]*)"[^}]*?"infra_provider":\s*"([^"]*)"'
+                r'(?:[^}]*?"tags":\s*\[([^\]]*)\])?',
+                r, re.DOTALL
+            ):
+                tags_raw = m.group(5) or ""
+                tags = [t.strip().strip('"') for t in tags_raw.split(",") if t.strip()]
+                candidati_c2.append({
+                    "dst_ip": m.group(1),
+                    "dst_port": int(m.group(2)),
+                    "hostname": m.group(3),
+                    "provider": m.group(4),
+                    "tags": tags,
+                })
+
+        if not candidati_c2:
+            return False, "nessun candidato C2 da scartare"
+
+        for c in candidati_c2:
+            host_ok = _hostname_e_legittimo(c["hostname"])
+            prov_ok = bool(c["provider"]) and c["provider"].upper() not in ("UNKNOWN", "N/A")
+            
+            ip_interno = ipaddress.ip_address(c["dst_ip"]).is_private if c["dst_ip"] else False
+            tag_keepalive = "INTERNAL_LAN_KEEPALIVE" in (c.get("tags") or [])
+            
+            if not (host_ok or prov_ok or ip_interno or tag_keepalive):
+                return False, (
+                    f"candidato C2 {c['dst_ip']}:{c['dst_port']} "
+                    f"(hostname='{c['hostname']}', provider='{c['provider']}') "
+                    "non riconducibile a servizio legittimo"
+                )
+
+        provider_noti = set()
+        hostname_noti = set()
+        for c in candidati_c2:
+            if c["hostname"] and c["hostname"].upper() != "N/A":
+                hostname_noti.add(c["hostname"].lower())
+            if c["provider"] and c["provider"].upper() not in ("UNKNOWN", "N/A"):
+                provider_noti.add(c["provider"].lower())
+
+        nomi = provider_noti | hostname_noti
+        citati = [n for n in nomi if n in (thought or "").lower()]
         if not citati:
-            return False, "nessun hostname/provider LEGITTIMO (dominio pubblico noto o provider cloud riconosciuto) citato nel Thought"
-        return True, f"solo euristiche morbide; servizio citato: {citati}"
+            return False, "hostname/provider del candidato C2 non citato nel Thought"
+        return True, f"candidato C2 legittimo: {citati}"
     
     # -------------------------------------------------------------------------
     # ARCHITETTURA DEI PROMPT (Inizializzazione Turno 1)
@@ -336,6 +423,7 @@ async def esegui_analisi_mcp(
     verdetto_vincolante_str = "UNKNOWN" 
     report_content: Optional[str] = None
     deroga_pre_scarto_max_turni: Optional[bool] = None
+    deroga_benign_accettata_nel_loop: Optional[bool] = None
 
     log_print(f"=== INIZIO INDAGINE MCP PER TARGET: {ip_target} ===")
 
@@ -489,12 +577,13 @@ async def esegui_analisi_mcp(
                         tool_eseguiti_correnti = {t["tool_name"] for t in risultati_tool_raccolti}
                         tutti_obbligatori_fatti = "compute_verdict_scores" in tool_eseguiti_correnti
                         ha_segnale_forte_corrente = _ha_score_altissimo_in_compute_verdict(risultati_tool_raccolti)
-                        verdetto_gia_dichiarato = engine.estrai_verdetto_pulito(testo_risposta)
+                        verdetto_gia_dichiarato, affidabilita_verdetto = engine._estrai_verdetto_con_confidenza(testo_risposta)
 
                         if (
                             tutti_obbligatori_fatti
                             and ha_segnale_forte_corrente
                             and verdetto_gia_dichiarato in prompts.VERDETTI_AMMESSI
+                            and affidabilita_verdetto == "ALTA"
                         ):
                             log_print(
                                 f" -> [AVVISO CORTOCIRCUITO]: L'LLM ha già dichiarato il verdetto finale "
@@ -503,6 +592,12 @@ async def esegui_analisi_mcp(
                                 "i tool obbligatori sono completi e c'è già un segnale forte >= 0.95."
                             )
                             tool_calls = []
+                        elif verdetto_gia_dichiarato in prompts.VERDETTI_AMMESSI and affidabilita_verdetto != "ALTA":
+                            log_print(
+                                f" -> [CORTOCIRCUITO RIFIUTATO]: Verdetto '{verdetto_gia_dichiarato}' rilevato "
+                                f"ma con affidabilità {affidabilita_verdetto} (fallback di prossimità). "
+                                "Non interrompo l'esplorazione: la tool_call viene eseguita normalmente."
+                            )
 
                     # =========================================================================
                     # ESECUZIONE TOOL CALL PRESENTE
@@ -608,7 +703,6 @@ async def esegui_analisi_mcp(
                                 max_elementi_lista=3
                             )
                             
-                            risultati_tool_raccolti.append({"tool_name": nome_funzione, "result": testo_risultato_sicuro})
                             tool_eseguito_dopo_ultimo_verdetto = True
                             metriche_tempo["tempo_sql_reale_sec"] += estrai_tempo_sql(mcp_result, testo_risultato_sicuro)
 
@@ -671,6 +765,17 @@ async def esegui_analisi_mcp(
 
                                     corroborato = _ha_evidenza_corroborante(verdetto, risultati_tool_raccolti)
 
+                                    if not corroborato and score >= 0.95:
+                                        score_originale = score
+                                        score = 0.70  # declassa a soglia non-tassativa
+                                        log_print(
+                                            f" -> [DECLASSAMENTO]: Score {score_originale} declassato a {score} "
+                                            f"perché corroborato=False. Override tassativo disattivato."
+                                        )
+                                        res_json["override_tassativo"] = False
+                                        res_json["score_declassato_da"] = score_originale
+                                        testo_risultato_sicuro = json.dumps(res_json)
+
                                     # Costruzione Guida Dinamica
                                     note_multi_score = ""
                                     if altri_score_attivi:
@@ -690,13 +795,87 @@ async def esegui_analisi_mcp(
                                         )
                                     elif score >= 0.95 and corroborato:
                                         guida_azione = (
-                                            f"[EVIDENZA CORROBORATA]: L'euristica indica {verdetto} (score {score}) ed è supportata dai log grezzi.{note_multi_score} "
-                                            "Se ritieni l'analisi completa, motiva le evidenze nel ragionamento finale ed emetti il VERDETTO FINALE."
+                                            f"[EVIDENZA CORROBORATA - VERIFICA CRITICA OBBLIGATORIA]: L'euristica "
+                                            f"indica {verdetto} (score {score}) ed è supportata dai log grezzi.{note_multi_score}\n\n"
+                                            "PRIMA di emettere il verdetto, esegui la VERIFICA CRITICA OBBLIGATORIA "
+                                            "descritta nel system prompt:\n"
+                                            "1. IDENTIFICA IL CANDIDATO PRINCIPALE: quale hostname, dst_ip, dst_port "
+                                            "e numero di connessioni hanno fatto scattare lo score? Citali esplicitamente.\n"
+                                            "2. VERIFICA LA NATURA DELLA DESTINAZIONE: l'hostname è riconducibile a un "
+                                            "servizio legittimo (adtech, CDN, telemetria, aggiornamenti, cloud, VPN)? "
+                                            "Il provider è Google, Amazon, Cloudflare, Akamai, Fastly, Microsoft, ecc.?\n"
+                                            "3. VERIFICA IL CONTESTO DI RETE: quanti flussi web totali e quante "
+                                            "destinazioni web distinte? Se flussi_web > 50 E destinazioni_web > 10, "
+                                            "il contesto è di browsing distribuito, non di C2.\n"
+                                            "4. VERIFICA LA CORROBORAZIONE DURA: il candidato ha almeno una delle "
+                                            "seguenti: hostname N/A + porta non standard su IP esterno non whitelist, "
+                                            "payload_entropy=1, tag CONFIRMED_BEACONING_C2 su IP non infrastrutturale, "
+                                            "assenza di traffico web contestuale?\n"
+                                            "5. SE HAI IDENTIFICATO UN FALSO POSITIVO: NON emettere il verdetto "
+                                            "suggerito. Emetti BENIGN citando il nome del servizio, i numeri del "
+                                            "contesto e il motivo per cui lo score è un falso positivo.\n\n"
+                                            "NON emettere un verdetto scritto 'score alto, quindi confermo' senza "
+                                            "questa analisi: la motivazione deve contenere sempre il candidato "
+                                            "principale e il contesto di rete."
                                         )
                                     else:
+                                        firme_depotenziate = []
+                                        for t in risultati_tool_raccolti:
+                                            r = str(t.get("result") or "")
+
+                                            m_bf = re.search(
+                                                r'"sospetto_web_bruteforce":\s*true', r
+                                            )
+                                            m_tc = re.search(
+                                                r'"target_colpiti_count":\s*(\d+)', r
+                                            )
+                                            m_mt = re.search(
+                                                r'"max_tentativi_per_ip":\s*(\d+)', r
+                                            )
+                                            if m_bf and m_tc and m_mt:
+                                                tc_val = int(m_tc.group(1))
+                                                mt_val = int(m_mt.group(1))
+                                                firme_depotenziate.append(
+                                                    f"sospetto_web_bruteforce=true "
+                                                    f"({mt_val} richieste su {tc_val} target)"
+                                                )
+
+                                            if '"sospetto_portscan": true' in r:
+                                                firme_depotenziate.append("sospetto_portscan=true")
+                                            if '"sospetto_bruteforce": true' in r:
+                                                firme_depotenziate.append("sospetto_bruteforce=true")
+
+                                            m_slow = re.search(
+                                                r'"flussi_slowloris_confermati":\s*(\d+)', r
+                                            )
+                                            if m_slow and int(m_slow.group(1)) > 0:
+                                                firme_depotenziate.append(
+                                                    f"flussi_slowloris_confermati={m_slow.group(1)}"
+                                                )
+
+                                        # Deduplica mantenendo l'ordine
+                                        viste = set()
+                                        firme_depotenziate = [
+                                            f for f in firme_depotenziate
+                                            if not (f in viste or viste.add(f))
+                                        ]
+
+                                        nota_firme = ""
+                                        if firme_depotenziate:
+                                            nota_firme = (
+                                                " ATTENZIONE: sono presenti firme strutturate nei tool "
+                                                f"di rilevazione ({'; '.join(firme_depotenziate)}) ma lo score "
+                                                "è stato depotenziato. Se il depotenziamento deriva da "
+                                                "soglie di rate/velocità tarate per traffico burst (non per "
+                                                "attacchi a bassa intensità prolungata), la firma strutturata "
+                                                "va rivalutata ESPLICITAMENTE nel Thought prima di emettere "
+                                                "BENIGN: un rate basso su una finestra lunga non contraddice "
+                                                "una concentrazione strutturale su un target singolo."
+                                            )
+
                                         guida_azione = (
                                             f"[ATTENZIONE - DISCREPANZA O INCOMPLETIZZA]: L'euristica suggerisce {verdetto} (score {score}),{note_multi_score} "
-                                            "MA l'evidenza nei log grezzi è debole, parziale o discordante (corroborato=False). "
+                                            f"MA l'evidenza nei log grezzi è debole, parziale o discordante (corroborato=False).{nota_firme} "
                                             "NON fidarti ciecamente dello score. Ispeziona ulteriormente i log DPI/HTTP o motiva criticamente il perché "
                                             "confermi o smentisci questo verdetto prima di chiudere."
                                         )
@@ -712,6 +891,30 @@ async def esegui_analisi_mcp(
 
                                 except Exception as e_sc:
                                     log_print(f" -> [AVVISO SHORT-CIRCUIT]: Impossibile analizzare l'output di compute_verdict_scores: {e_sc}")
+
+                            elif nome_funzione == "detect_beaconing":
+                                try:
+                                    res_beacon = json.loads(testo_risultato_sicuro)
+                                    candidati = res_beacon.get("candidati_top") or []
+                                    candidati_c2 = [
+                                        c for c in candidati
+                                        if (c.get("hostname") or "N/A") == "N/A"
+                                        and int(c.get("dst_port") or 0) in (8080, 8443, 444, 1080)
+                                    ]
+                                    if candidati_c2:
+                                        c = candidati_c2[0]
+                                        testo_risultato_sicuro += (
+                                            f"\n\n[SISTEMA - DRILL-DOWN OBBLIGATORIO SUL CANDIDATO]: "
+                                            f"Rilevato candidato C2 verso {c.get('dst_ip')}:{c.get('dst_port')} "
+                                            f"con hostname N/A e {c.get('totale_connessioni')} connessioni. "
+                                            f"PRIMA di confermare BEACONING_C2, esegui "
+                                            f"'analizza_connessione_by_community_id' su uno dei flussi del "
+                                            f"candidato per verificarne il payload. Se il payload è minimo "
+                                            f"(< 1000 byte) e costante, è un heartbeat legittimo → BENIGN. "
+                                            f"NON confermare C2 senza questo drill-down."
+                                        )
+                                except Exception:
+                                    pass
 
                             elif engine._verifica_segnale_forte(testo_risultato_sicuro):
                                 log_print(f" -> [SEGNALE FORTE]: Rilevato segnale ad alta confidenza (score >= 0.95) in '{nome_funzione}'.")
@@ -744,6 +947,8 @@ async def esegui_analisi_mcp(
                             preview_res = testo_risultato_sicuro[:180].replace("\n", " ")
                             log_print(f" -> [TOOL RESULT]: {preview_res}..." if len(testo_risultato_sicuro) > 180 else f" -> [TOOL RESULT]: {preview_res}")
                             log_only(f"[RISULTATO TOOL INTEGRALE]:\n{testo_risultato_sicuro}\n\n")
+
+                            risultati_tool_raccolti.append({"tool_name": nome_funzione, "result": testo_risultato_sicuro})
 
                             tag_prefix = f"[FOCUS ATTIVO: {categoria_tag}]\n" if 'categoria_tag' in locals() else ""
                             messages.append({
@@ -848,6 +1053,54 @@ async def esegui_analisi_mcp(
 
                     if is_tentativo_chiusura and not gia_avvisato_anti_fn and engine._verifica_incoerenza_benign(risultati_tool_raccolti):
                         deroga_ok, motivo_deroga_loop = _deroga_benign_ammessa(testo_risposta, risultati_tool_raccolti)
+                        
+                        if not deroga_ok:
+                            thought_lower = (testo_risposta or "").lower()
+                            # Verifica presenza dei 5 punti della verifica critica
+                            punti_motivazione = [
+                                "hostname" in thought_lower,
+                                "connessioni" in thought_lower or "connessione" in thought_lower,
+                                "flussi" in thought_lower or "destinazioni" in thought_lower,
+                                "corroborazione" in thought_lower or "entropy" in thought_lower or "cv" in thought_lower,
+                                "benign" in thought_lower,
+                            ]
+                            punti_presenti = sum(punti_motivazione)
+                            
+                            m_conn = _re.search(r'(\d+)\s*connessioni', thought_lower)
+                            conn_val = int(m_conn.group(1)) if m_conn else 999
+                            
+                            m_cv = _re.search(r'cv[=:\s]+([\d.]+)', thought_lower)
+                            cv_val = float(m_cv.group(1)) if m_cv else 999.0
+                            
+                            m_fweb = _re.search(r'(\d+)\s*flussi\s+web', thought_lower)
+                            fweb_val = int(m_fweb.group(1)) if m_fweb else 0
+                            m_dest = _re.search(r'(\d+)\s*destinazioni', thought_lower)
+                            dest_val = int(m_dest.group(1)) if m_dest else 0
+                            
+                            deroga_strutturata = (
+                                punti_presenti >= 4
+                                and conn_val < config.Soglie.BEACON_MIN_CONNESSIONI 
+                                and cv_val <= 0.15                                   
+                                and fweb_val > 50                                   
+                                and dest_val > 10
+                            )
+                            
+                            if deroga_strutturata:
+                                log_print(
+                                    f" -> [DEROGA BENIGN STRUTTURATA AMMESSA NEL LOOP]: "
+                                    f"LLM ha motivato con {punti_presenti}/5 punti, candidato con "
+                                    f"{conn_val} connessioni (< {config.Soglie.BEACON_MIN_CONNESSIONI}), "
+                                    f"CV={cv_val} (artefatto), contesto browsing ({fweb_val} flussi, "
+                                    f"{dest_val} destinazioni). Chiusura NON bloccata."
+                                )
+                                deroga_benign_accettata_nel_loop = True
+                                deroga_ok = True
+                            else:
+                                log_print(
+                                    f" -> [DEROGA STRUTTURATA RIFIUTATA]: punti={punti_presenti}/5, "
+                                    f"conn={conn_val}, cv={cv_val}, fweb={fweb_val}, dest={dest_val}"
+                                )
+                        
                         if deroga_ok:
                             log_print(f" -> [DEROGA BENIGN AMMESSA NEL LOOP]: {motivo_deroga_loop}. Chiusura NON bloccata.")
                         else:
@@ -975,22 +1228,138 @@ async def esegui_analisi_mcp(
                         else:
                             deroga_pre_scarto_max_turni = None
 
+                        # Calcola se lo score del tool è "forte": >= 0.9 e NON declassato.
+                        # Se lo score è stato declassato o è borderline, la guardia anti-FN non scatta
+                        # e si accetta il BENIGN dell'LLM.
+                        score_tool, stato_score = engine.estrai_score_tool(risultati_tool_raccolti)
+                        score_forte = (
+                            score_tool is not None
+                            and score_tool >= 0.9
+                            and stato_score != "declassato"
+                        )
+
                         if (verdetto_grezzo_max_turni == "BENIGN"
                             and engine._verifica_incoerenza_benign(risultati_tool_raccolti)
                             and deroga_pre_scarto_max_turni is False
+                            and score_forte
                         ):
                             log_print(
-                                " -> [ANTI-FN MAX TURNI]: Verdetto BENIGN a fine turni incoerente "
-                                "con le evidenze grezze raccolte (anomalia/flood/L7 rilevati). "
-                                "Thought scartato: Stage 2 ricadrà sul suggerimento euristico del tool."
+                                f" -> [ANTI-FN MAX TURNI]: Verdetto BENIGN a fine turni incoerente "
+                                f"con le evidenze grezze raccolte e score tool FORTE ({score_tool}). "
+                                "PRIMA di scartare il Thought, invio un'ultima richiesta di motivazione "
+                                "strutturata all'LLM: se motiva la deroga con dati concreti, la accetto."
                             )
-                            log_only(f"[THOUGHT ORIGINALE SCARTATO PER INCOERENZA - MAX TURNI]:\n{testo_risposta}\n\n")
-                            testo_risposta = (
-                                "[SCARTATO DAL SISTEMA - VERDETTO BENIGN INCOERENTE CON LE EVIDENZE RACCOLTE]: "
-                                "il ragionamento a fine turni è stato annullato perché in contraddizione con "
-                                "un'anomalia strutturale già rilevata dai tool. Il verdetto sarà determinato "
-                                "in Stage 2 a partire dal suggerimento euristico del tool."
+
+                            messaggio_richiesta_deroga = (
+                                "ATTENZIONE - RICHIESTA DI MOTIVAZIONE OBBLIGATORIA (ULTIMO TENTATIVO):\n"
+                                "Hai emesso BENIGN, ma lo score del tool è forte (>= 0.95). Per accettare "
+                                "la tua deroga, devi rispondere a TUTTI i seguenti punti, citando dati "
+                                "concreti presenti negli output dei tool. Se NON riesci a rispondere a "
+                                "TUTTI i punti con dati concreti, il verdetto corretto è quello suggerito "
+                                "dallo score.\n\n"
+                                "1. CANDIDATO PRINCIPALE: quale hostname (o 'N/A'), dst_ip, dst_port e "
+                                "numero di connessioni hanno fatto scattare lo score? Citali esplicitamente.\n"
+                                "2. NATURA DELLA DESTINAZIONE: l'hostname è riconducibile a un servizio "
+                                "legittimo (adtech, CDN, telemetria, aggiornamenti, cloud, VPN)? Se sì, "
+                                "cita il nome del servizio. Il provider è Google, Amazon, Cloudflare, "
+                                "Akamai, Fastly, Microsoft, ecc.?\n"
+                                "3. CONTESTO DI RETE: quanti flussi web totali e quante destinazioni web "
+                                "distinte ha l'host? Se flussi_web > 50 E destinazioni_web > 10, il "
+                                "contesto è di browsing distribuito, non di C2.\n"
+                                "4. CORROBORAZIONE DURA: il candidato ha almeno una delle seguenti? "
+                                "(a) hostname N/A + porta non standard su IP esterno non whitelist; "
+                                "(b) payload_entropy=1; (c) tag CONFIRMED_BEACONING_C2 su IP non "
+                                "infrastrutturale; (d) assenza di traffico web contestuale "
+                                "(destinazioni_web <= 10 E flussi_web <= 50).\n"
+                                "5. CONCLUSIONE: sulla base delle risposte 1-4, spiega perché lo score "
+                                "è un FALSO POSITIVO e non una minaccia reale.\n\n"
+                                "Rispondi con un JSON nel formato: "
+                                '{"verdetto": "<BENIGN o categoria>", "motivazione": "<risposta ai 5 punti>"}'
                             )
+
+                            messages.append({"role": "assistant", "content": testo_risposta})
+                            messages.append({"role": "user", "content": messaggio_richiesta_deroga})
+
+                            try:
+                                response_deroga = await asyncio.wait_for(
+                                    client.chat.completions.create(
+                                        model=model_name,
+                                        messages=messages,
+                                        temperature=0.0,
+                                        max_tokens=1024,
+                                    ),
+                                    timeout=120.0,
+                                )
+                                contenuto_deroga = response_deroga.choices[0].message.content or ""
+
+                                import re as _re
+                                json_match = _re.search(r"\{[\s\S]*\}", contenuto_deroga)
+                                if json_match:
+                                    data_deroga = json.loads(json_match.group(0).strip())
+                                    v_deroga = str(data_deroga.get("verdetto", "")).strip().upper()
+                                    mot_deroga = str(data_deroga.get("motivazione", "")).strip()
+
+                                    if v_deroga == "BENIGN" and mot_deroga:
+                                        # Verifica che la motivazione citi i 5 punti
+                                        keywords = ["hostname", "flussi", "destinazioni", "porta",
+                                                    "entropy", "provider", "connessioni", "cv"]
+                                        hits = sum(1 for kw in keywords if kw.lower() in mot_deroga.lower())
+                                        if hits >= 3:
+                                            log_print(
+                                                f" -> [DEROGA BENIGN ACCETTATA]: l'LLM ha motivato la deroga "
+                                                f"citando {hits}/8 keyword strutturate. Verdetto BENIGN mantenuto."
+                                            )
+                                            log_only(f"[DEROGA STRUTTURATA]:\n{mot_deroga}\n\n")
+                                            deroga_benign_accettata_nel_loop = True
+                                            testo_risposta = json.dumps(
+                                                {"verdetto": "BENIGN", "motivazione": mot_deroga},
+                                                ensure_ascii=False,
+                                            )
+                                        else:
+                                            log_print(
+                                                f" -> [DEROGA BENIGN RIFIUTATA]: motivazione troppo generica "
+                                                f"({hits}/8 keyword). Thought scartato: Stage 2 ricadrà sul "
+                                                "suggerimento euristico del tool."
+                                            )
+                                            log_only(f"[THOUGHT ORIGINALE SCARTATO PER INCOERENZA - MAX TURNI]:\n{testo_risposta}\n\n")
+                                            testo_risposta = (
+                                                "[SCARTATO DAL SISTEMA - VERDETTO BENIGN INCOERENTE CON LE "
+                                                "EVIDENZE RACCOLTE]: la motivazione della deroga non cita "
+                                                "abbastanza dati concreti (hostname, flussi, destinazioni, "
+                                                "porta, entropy). Il verdetto sarà determinato in Stage 2 "
+                                                "a partire dal suggerimento euristico del tool."
+                                            )
+                                    else:
+                                        log_print(f" -> [DEROGA BENIGN NON EMESSA]: l'LLM ha risposto '{v_deroga}'.")
+                                        testo_risposta = json.dumps(
+                                            {"verdetto": v_deroga, "motivazione": mot_deroga},
+                                            ensure_ascii=False,
+                                        )
+                                else:
+                                    log_print(" -> [DEROGA BENIGN PARSING FALLITO]: nessun JSON nella risposta.")
+                                    log_only(f"[THOUGHT ORIGINALE SCARTATO PER INCOERENZA - MAX TURNI]:\n{testo_risposta}\n\n")
+                                    testo_risposta = (
+                                        "[SCARTATO DAL SISTEMA - VERDETTO BENIGN INCOERENTE CON LE "
+                                        "EVIDENZE RACCOLTE]: il sistema non ha ricevuto una motivazione "
+                                        "strutturata valida. Il verdetto sarà determinato in Stage 2 a "
+                                        "partire dal suggerimento euristico del tool."
+                                    )
+                            except Exception as e_deroga:
+                                log_print(f" -> [ERRORE RICHIESTA DEROGA]: {type(e_deroga).__name__}: {e_deroga}")
+                                log_only(f"[THOUGHT ORIGINALE SCARTATO PER INCOERENZA - MAX TURNI]:\n{testo_risposta}\n\n")
+                                testo_risposta = (
+                                    "[SCARTATO DAL SISTEMA - VERDETTO BENIGN INCOERENTE CON LE "
+                                    "EVIDENZE RACCOLTE]: la richiesta di motivazione è fallita. Il "
+                                    "verdetto sarà determinato in Stage 2 a partire dal suggerimento "
+                                    "euristico del tool."
+                                )
+                        else:
+                            if verdetto_grezzo_max_turni == "BENIGN" and not score_forte:
+                                log_print(
+                                    f" -> [ANTI-FN MAX TURNI NON ATTIVATO]: BENIGN a fine turni mantenuto. "
+                                    f"Score tool debole/declassato (score={score_tool}, stato={stato_score}) "
+                                    "oppure nessun conflitto forte con le evidenze. Il Thought LLM non viene scartato."
+                                )
 
                         # Fallback residuo se il provider non supporta tool_choice forzato o la call è vuota
                         if not testo_risposta.strip():
@@ -1067,7 +1436,7 @@ async def esegui_analisi_mcp(
 
         # ESTRAZIONE E VALUTAZIONE VERDETTI
         verdetto_suggerito_tool, motivo_override = engine.estrai_suggerimento_tool(risultati_tool_raccolti)
-        verdetto_thought = engine.estrai_verdetto_pulito(thought_pulito)
+        verdetto_thought, affidabilita_thought = engine._estrai_verdetto_con_confidenza(thought_pulito)
 
         log_print(f" -> [ANALISI PRELIMINARE LLM THOUGHT]: '{verdetto_thought}'")
         log_print(f" -> [SUGGERIMENTO EURISTICO TOOL]: '{verdetto_suggerito_tool}' (Motivo: {motivo_override})")
@@ -1083,20 +1452,66 @@ async def esegui_analisi_mcp(
         conflitto_tool = _estrai_conflitto_tool(risultati_tool_raccolti)
 
         deroga_ok, motivo_deroga = (False, "")
-        if verdetto_thought == "BENIGN" and not benign_scartato:
+
+        if deroga_benign_accettata_nel_loop:
+            deroga_ok = True
+            motivo_deroga = "deroga accettata nel loop con motivazione strutturata"
+            log_print(f" -> [DEROGA BENIGN - EREDITATA DAL LOOP]: {deroga_ok}")
+        elif verdetto_thought == "BENIGN" and not benign_scartato:
             deroga_ok, motivo_deroga = _deroga_benign_ammessa(thought_pulito, risultati_tool_raccolti)
             log_print(f" -> [DEROGA BENIGN]: {deroga_ok} ({motivo_deroga})")
+            
+            if not deroga_ok:
+                thought_lower = (thought_pulito or "").lower()
+                import re as _re
+                m_conn = _re.search(r'(\d+)\s*connessioni', thought_lower)
+                conn_val = int(m_conn.group(1)) if m_conn else 999
+                m_cv = _re.search(r'cv\s*[=:]\s*(\d+\.\d+|\d+)', thought_lower)
+                cv_val = float(m_cv.group(1)) if m_cv else 999.0
+                m_fweb = _re.search(r'(\d+)\s*flussi\s+web', thought_lower)
+                fweb_val = int(m_fweb.group(1)) if m_fweb else 0
+                m_dest = _re.search(r'(\d+)\s*destinazioni', thought_lower)
+                dest_val = int(m_dest.group(1)) if m_dest else 0
+                
+                if (conn_val < config.Soglie.BEACON_MIN_CONNESSIONI
+                    and cv_val <= 0.15
+                    and fweb_val > 50
+                    and dest_val > 10):
+                    log_print(
+                        f" -> [DEROGA BENIGN STRUTTURATA IN FASE 2]: candidato con "
+                        f"{conn_val} connessioni (< {config.Soglie.BEACON_MIN_CONNESSIONI}), "
+                        f"CV={cv_val}, contesto browsing ({fweb_val} flussi, {dest_val} destinazioni)."
+                    )
+                    deroga_ok = True
+                    motivo_deroga = "deroga strutturata: candidato sotto soglia + CV artefatto + browsing distribuito"
         elif benign_scartato and deroga_pre_scarto_max_turni is not None:
             deroga_ok = deroga_pre_scarto_max_turni
             motivo_deroga = "valutazione ereditata dal ramo max-turni (pre-scarto)"
             log_print(f" -> [DEROGA BENIGN - EREDITATA DA MAX TURNI]: {deroga_ok}")
 
-        if benign_tentato and verdetto_suggerito_tool in config.CAT_ATTACCO and not deroga_ok:
+        score_tool, stato_score = engine.estrai_score_tool(risultati_tool_raccolti)
+
+        tool_score_e_debole = (
+            score_tool is None
+            or score_tool < 0.9
+            or stato_score == "declassato"
+        )
+
+        if (benign_tentato
+            and verdetto_suggerito_tool in config.CAT_ATTACCO
+            and not deroga_ok
+            and not tool_score_e_debole):         
             verdetto_vincolante_str = verdetto_suggerito_tool
-            is_fallback_tool = False  # Stage 2 non potrà declassare a BENIGN
-            motivo_scelta_cli = f"Guard FN: BENIGN in contrasto con l'euristica ({verdetto_suggerito_tool})."
-            log_print(f" -> [GUARD FN]: BENIGN scartato, applico '{verdetto_vincolante_str}'.")
+            is_fallback_tool = False
+            motivo_scelta_cli = f"Guard FN: BENIGN in contrasto con euristica forte ({verdetto_suggerito_tool})."
             forzato_da_guardia = True
+        elif benign_tentato and not deroga_ok and tool_score_e_debole:
+            verdetto_vincolante_str = "BENIGN"
+            is_fallback_tool = True
+            motivo_scelta_cli = (
+                f"Guard FN attenuata: BENIGN accettato perché lo score del tool "
+                f"({score_tool}) è debole/declassato. Conflitto registrato nei log."
+            )
 
         elif conflitto_tool and verdetto_thought not in config.CAT_ATTACCO:
             corroborati = [c for c in conflitto_tool if _ha_evidenza_corroborante(c, risultati_tool_raccolti)]
@@ -1109,11 +1524,24 @@ async def esegui_analisi_mcp(
                 f"assente, non conclusivo o BENIGN (evidenza corroborata: {corroborati or 'nessuna'})."
             )
             log_print(f" -> [GUARD FN - CONFLITTO]: pareggio {conflitto_tool}, applico '{verdetto_vincolante_str}'.")
-
-        elif verdetto_thought in prompts.VERDETTI_AMMESSI:
+        
+        elif verdetto_thought in prompts.VERDETTI_AMMESSI and affidabilita_thought == "ALTA":
             verdetto_vincolante_str = verdetto_thought
-            motivo_scelta_cli = f"Autonomia LLM: Confermato verdetto proposto dal Thought dell'analista: '{verdetto_vincolante_str}'."
+            motivo_scelta_cli = (
+                f"Autonomia LLM: Confermato verdetto proposto dal Thought dell'analista: "
+                f"'{verdetto_vincolante_str}'."
+            )
             log_print(f" -> [VERDETTO AUTONOMO LLM]: {verdetto_vincolante_str}")
+
+        elif verdetto_thought in prompts.VERDETTI_AMMESSI and affidabilita_thought == "MEDIA":
+            verdetto_vincolante_str = verdetto_thought
+            is_fallback_tool = True
+            motivo_scelta_cli = (
+                f"Fallback di prossimità (affidabilità MEDIA): il Thought dell'analista "
+                f"non contiene una dichiarazione esplicita di verdetto. "
+                f"Applico '{verdetto_vincolante_str}' ma Stage 2 potrà correggerlo."
+            )
+            log_print(f" -> [VERDETTO AUTONOMO LLM - FALLBACK]: {verdetto_vincolante_str} (affidabilità MEDIA)")
 
         elif verdetto_suggerito_tool in prompts.VERDETTI_AMMESSI:
             verdetto_vincolante_str = verdetto_suggerito_tool
@@ -1182,8 +1610,10 @@ async def esegui_analisi_mcp(
             )
 
             regola_3_testo = (
-                'CORREZIONI TRA CATEGORIE MALEVOLE: puoi correggere una categoria malevola con un\'altra; '
-                'la motivazione DEVE iniziare con "CORREZIONE RISPETTO ALLO STAGE 1:".'
+                "CORREZIONI TRA CATEGORIE MALEVOLE: puoi correggere una categoria malevola con un'altra "
+                "SOLO se la motivazione inizia con 'CORREZIONE RISPETTO ALLO STAGE 1:' E include una sezione "
+                "'NUOVE EVIDENZE:' che cita dati specifici (IP, community_id, porte, volumi) non considerati "
+                "nello Stage 1. Senza nuove evidenze, il verdetto di Stage 1 va ricopiato identico."
                 if is_fallback_tool else
                 "NESSUNA CORREZIONE: il verdetto di Stage 1 va ricopiato identico, anche tra categorie di attacco."
             )
@@ -1324,32 +1754,39 @@ async def esegui_analisi_mcp(
                                 mot_estratta = f"REVISIONE FALLBACK EURISTICO: {mot_estratta}"
                                 ha_prefisso_corretto = True
 
-                        # Blocca il cambio TRA categorie di attacco quando Stage 1
-                        # era un giudizio esplicito dell'LLM (non un fallback euristico)
                         elif (
                             is_correzione
                             and not is_fallback_tool
                             and verdetto_vincolante_str in config.CAT_ATTACCO
                             and v_estratto in config.CAT_ATTACCO
                         ):
-                            log_print(
-                                f" -> [REJECT STAGE 2]: Bloccato cambio categoria da '{verdetto_vincolante_str}' "
-                                f"a '{v_estratto}' (giudizio Stage 1 esplicito, non fallback: il cambio tra "
-                                "categorie di attacco non è ammesso, solo la conferma)."
-                            )
-                            storico_retry_report = [
-                                {"role": "assistant", "content": contenuto_raw},
-                                {
-                                    "role": "user",
-                                    "content": (
-                                        f"DIVIETO TASSATIVO: Il verdetto dello Stage 1 ('{verdetto_vincolante_str}') "
-                                        "è un giudizio esplicito dell'analista, non un fallback euristico. Non puoi "
-                                        f"cambiarlo a '{v_estratto}' né a qualunque altra categoria: ricopia "
-                                        f"esattamente '{verdetto_vincolante_str}' nel campo 'verdetto'."
-                                    )
-                                }
-                            ]
-                            continue
+                            # AMMETTI la correzione se l'LLM cita esplicitamente nuove evidenze
+                            if "NUOVE EVIDENZE:" in mot_estratta:
+                                log_print(
+                                    f" -> [OVERRIDE STAGE 2 AMMESSO]: correzione da "
+                                    f"'{verdetto_vincolante_str}' a '{v_estratto}' motivata da nuove evidenze."
+                                )
+                            else:
+                                log_print(
+                                    f" -> [REJECT STAGE 2]: Cambio categoria da '{verdetto_vincolante_str}' "
+                                    f"a '{v_estratto}' senza sezione 'NUOVE EVIDENZE:' obbligatoria."
+                                )
+                                storico_retry_report = [
+                                    {"role": "assistant", "content": contenuto_raw},
+                                    {
+                                        "role": "user",
+                                        "content": (
+                                            f"ERRORE DI VALIDAZIONE: stai cambiando il verdetto da "
+                                            f"'{verdetto_vincolante_str}' a '{v_estratto}'. Per farlo DEVI citare "
+                                            "esplicitamente nuove evidenze non considerate nello Stage 1, "
+                                            "iniziando la motivazione con: 'NUOVE EVIDENZE:' seguita dalla/e "
+                                            "prova/e specifica/che (numeri, IP, community_id) presenti negli "
+                                            "output dei tool. In assenza di nuove evidenze, ricopia il verdetto "
+                                            f"'{verdetto_vincolante_str}'."
+                                        )
+                                    }
+                                ]
+                                continue
 
                         elif (
                             verdetto_vincolante_str == "BENIGN"
