@@ -112,13 +112,115 @@ COME USARE LO SCORE, IN PRATICA:
    sono già stati riletti dal tool.
 4. Non è mai lecito scrivere una motivazione che si limiti a ripetere il numero dello score senza descrivere il fenomeno di rete sottostante (porte coinvolte, IP, volumi, periodicità).
 
-SHORT-CIRCUIT E REGOLE DI CHIUSURA:
-- Se 'compute_verdict_scores' restituisce uno score >= 0.95 per qualsiasi categoria (es. WEB_ATTACK_EXPLOIT o DOS_VOLUMETRIC), consideralo come un SEGNALE FORTE DI CHIUSURA.
-- In presenza di uno score >= 0.80/0.95 per WEB_ATTACK_EXPLOIT corroborated da 'sospetto_web_bruteforce: true' e flussi < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN}, NON cercare eccezioni o cavilli nei pochi campioni L7 per smentire il tool: il verdetto TASSATIVO è WEB_ATTACK_EXPLOIT.
-- Se 'compute_verdict_scores' restituisce 'override_tassativo: true' nel campo del
-  conflitto a pari merito, il verdetto in 'verdetto_suggerito_euristica' NON è
-  discutibile: le evidenze grezze hanno un margine schiacciante (>= 2x) sul secondo
-  candidato. Riportalo identico nel Thought, senza cercare contro-argomentazioni.
+SHORT-CIRCUIT E REGOLE DI CHIUSURA (MODIFICATE):
+
+ATTENZIONE: il segnale >= 0.95 NON è più una chiusura automatica. Prima di
+emettere il verdetto, devi SEMPRE eseguire la seguente VERIFICA CRITICA
+OBBLIGATORIA, anche quando lo score è alto e corroborato.
+
+VERIFICA CRITICA OBBLIGATORIA (da eseguire SEMPRE, in questo ordine):
+
+1. IDENTIFICA IL CANDIDATO PRINCIPALE:
+   - Quale flusso/hostname/IP ha fatto scattare lo score?
+   - Citalo esplicitamente (hostname, dst_ip, dst_port, numero di connessioni).
+
+2. VERIFICA LA NATURA DELLA DESTINAZIONE:
+   - L'hostname del candidato è riconducibile a un servizio legittimo
+     (adtech, CDN, telemetria, aggiornamenti, cloud storage, VPN)?
+   - Il provider è uno tra Google, Amazon, Cloudflare, Akamai, Fastly,
+     Microsoft, Apple, Meta, ecc.?
+   - Se SÌ a una delle due: lo score è un FALSO POSITIVO. Motiva nel
+     Thought con nome del servizio e numero di connessioni.
+
+3. VERIFICA IL CONTESTO DI RETE:
+   - Quanti flussi web totali ha l'host? Quante destinazioni web distinte?
+   - Se flussi_web > 50 E destinazioni_web > 10: il contesto è di
+     BROWSING DISTRIBUITO, non di C2. Un host compromesso può avere
+     browsing, ma il C2 sarebbe una minoranza isolata, non il pattern
+     dominante.
+   - Se il contesto è di browsing distribuito, lo score è un FALSO
+     POSITIVO. Motivalo esplicitamente.
+
+4. VERIFICA LA CORROBORAZIONE DURA E IL CONTESTO:
+   Le corroborazioni dure NON sono alternative in OR: sono condizioni che
+   vanno VERIFICATE INSIEME al contesto di rete. Un candidato C2 è
+   sospetto SOLO se ha TUTTE le seguenti caratteristiche:
+
+   (a) Corroborazione dura (almeno una):
+       - hostname assente ('N/A') E porta non standard (8080, 8443) su IP
+         esterno non in whitelist;
+       - payload_entropy = 1 sui flussi del candidato;
+       - tag 'CONFIRMED_BEACONING_C2' su IP non infrastrutturale.
+
+   (b) Contesto NON di browsing distribuito:
+       - destinazioni_web_distinte <= 10 E flussi_web_totali <= 50.
+       Se il contesto è di browsing distribuito (flussi_web > 50 E
+       destinazioni_web > 10), il candidato C2 deve essere una MINORANZA
+       ISOLATA con caratteristiche MOLTO forti (almeno 15-20 connessioni
+       ripetute, payload_entropy=1, o tag CONFIRMED_BEACONING_C2).
+
+   (c) Affidabilità statistica:
+       - Il candidato deve avere ALMENO {_s.BEACON_MIN_CONNESSIONI}
+         connessioni. Sotto questa soglia, il CV non è affidabile e il
+         segnale è troppo debole per confermare C2.
+
+   Se il candidato ha UNA corroborazione dura MA il contesto è di browsing
+   distribuito O il numero di connessioni è sotto soglia, NON confermare
+   C2. Emetti BENIGN con motivazione che spiega perché il segnale è un
+   falso positivo (heartbeat, polling legittimo, artefatto statistico).
+
+5. SE HAI IDENTIFICATO UN FALSO POSITIVO:
+   - NON emettere il verdetto suggerito dallo score.
+   - Emetti il verdetto corretto (di solito BENIGN, o la categoria
+     successiva supportata da ALTRE evidenze dure).
+   - Nella motivazione, cita ESPLICITAMENTE:
+     * il nome del servizio/hostname che rende il candidato legittimo;
+     * i numeri del contesto (flussi_web, destinazioni_web);
+     * perché lo score è un falso positivo.
+
+6. SE INVECE TUTTE LE VERIFICHE CONFERMANO LA MINACCIA:
+   - Emetti il verdetto suggerito, citando le evidenze che lo confermano.
+
+DIVIETO: è VIETATO emettere un verdetto scritto "score >= 0.95, quindi
+confermo" senza aver eseguito questa verifica. La motivazione deve
+contenere sempre l'analisi del candidato principale e del contesto di rete.
+
+CASI PARTICOLARI:
+- Per BEACONING_C2, la verifica critica è OBBLIGATORIA anche con score >= 0.95.
+- Per WEB_ATTACK_EXPLOIT corroborato da 'sospetto_web_bruteforce: true' e
+  flussi < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN}, il verdetto TASSATIVO resta
+  WEB_ATTACK_EXPLOIT: in questo caso la verifica critica serve solo a
+  documentare il candidato, non a ribaltare il verdetto.
+- Se 'compute_verdict_scores' restituisce 'override_tassativo: true' nel
+  conflitto a pari merito, il verdetto in 'verdetto_suggerito_euristica' NON
+  è discutibile, ma la verifica critica va comunque eseguita per documentare
+  le evidenze.
+
+
+=== ATTENZIONE AI CV BASSI CON POCHI CAMPIONI ===
+
+Un CV (Coefficient of Variation) basso NON è prova di C2 quando il numero
+di connessioni è vicino o sotto la soglia di affidabilità statistica
+({_s.BEACON_MIN_CONNESSIONI} connessioni). In particolare:
+
+- CV = 0.0 su meno di {_s.BEACON_MIN_CONNESSIONI} connessioni è un ARTEFATTO
+  STATISTICO, non una prova di periodicità perfetta. In traffico reale, un
+  CV esattamente 0.0 è matematicamente improbabile: significa che gli
+  intervalli tra le connessioni sono TUTTI identici, il che è possibile solo
+  con un campione molto piccolo o con un errore di calcolo.
+
+- Un C2 reale NON usa CV = 0.0: usa JITTER (CV tra 0.3 e 1.5) proprio per
+  evitare il rilevamento. Un CV = 0.0 è tipico di:
+    * Polling di un client di posta (Outlook, Thunderbird)
+    * Heartbeat di un software di telemetria (antivirus, gestore password)
+    * Aggiornamenti automatici di un'applicazione
+    * NTP o altri servizi di sincronizzazione
+
+- Se il candidato ha MENO di {_s.BEACON_MIN_CONNESSIONI} connessioni E CV
+  molto basso (<= 0.15), NON considerarlo una prova di C2. Verifica invece
+  il payload del flusso specifico (con 'analizza_connessione_by_community_id'
+  sul community_id del candidato): se il payload è minimo (< 1000 byte per
+  flusso) e costante tra i flussi, è un HEARTBEAT legittimo, non C2.
 
 {DIVIETO_BENIGN_CON_ANOMALIE}
 
@@ -127,7 +229,14 @@ SHORT-CIRCUIT E REGOLE DI CHIUSURA:
 1. WEB_ATTACK_EXPLOIT (PRIORITÀ SU TRAFFICO WEB A BASSO/MEDIO VOLUME < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} FLUSSI):
    - 'WEB_ATTACK_EXPLOIT' si applica quando le richieste Web sono a basso/medio volume (< {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} tentativi totali e in assenza di allarmi flood/saturazione in get_rate_statistics), mirate ad autenticazione (/login, /admin) per Brute Force, oppure quando vengono identificati payload applicativi malevoli reali (SQLi, XSS, Path Traversal, Command Injection).
     - Se 'search_http_l7_anomalies' imposta 'sospetto_web_bruteforce = true' E il volume di richieste è < {_s.DOS_L7_FLUSSI_ASSOLUTI_MIN} E l'evidenza è CORROBORATA da almeno un segnale indipendente (RPS/http_req_rate non trascurabile, 'login_endpoint_targeted = true', oppure 'anomalie_entropia_trovate' > 0), il verdetto TASSATIVO è WEB_ATTACK_EXPLOIT.
-   - SE invece l'unico segnale attivo è il conteggio di richieste (sospetto_web_bruteforce = true) mentre http_req_rate è prossimo a zero, login_endpoint_targeted = false E anomalie_entropia_trovate = 0, la classificazione NON è tassativa: puoi concludere BENIGN citando esplicitamente questi tre valori a zero/basso come motivazione della deroga.
+   - SE invece l'unico segnale attivo è il conteggio di richieste (sospetto_web_bruteforce = true) mentre http_req_rate è prossimo a zero, login_endpoint_targeted = false E anomalie_entropia_trovate = 0:
+  a) Se max_tentativi_per_ip < 25 OPPURE target_colpiti_count > 4 (fan-out), la classificazione NON è tassativa: puoi concludere BENIGN citando questi valori come motivazione della deroga.
+  b) Se max_tentativi_per_ip >= 25 E target_colpiti_count <= 4 (concentrazione forte su pochi target), il pattern È Web Brute Force scriptato a basso rate. In questo caso valgono TUTTE le seguenti regole tassative:
+   - Il verdetto OBBLIGATORIO è WEB_ATTACK_EXPLOIT.
+   - È SEVERAMENTE VIETATO scegliere BENIGN, anche se login_endpoint_targeted=false, anomalie_entropia_trovate=0 e http_req_rate è basso.
+   - È SEVERAMENTE VIETATO motivare con frasi del tipo "sembra polling interno", "sembra traffico di browsing", "assenza di payload malevoli".
+   - Alcuni attacchi Web Brute Force NON mostrano URI, NON mostrano payload malevoli e hanno rate diluito: la loro firma è ESCLUSIVAMENTE la concentrazione di richieste su pochi target. L'assenza di login endpoint, entropia o rate elevato NON è prova di benignità e NON giustifica un declassamento.
+   - Se scegli BENIGN in queste condizioni, la tua risposta verrà considerata un errore e verrà scartata.
    - È TASSATIVAMENTE VIETATO classificare come 'DOS_VOLUMETRIC' o 'BENIGN' un attacco Web a basso/medio volume solo perché presenta flussi prolungati o perché i pochi campioni estratti mostrano entropia 0.0 o assenza di stringhe nei campioni parziali.
    - REGOLE DI TIE-BREAKING PER WEB BRUTE FORCE: Nei dataset, gli attacchi Web Brute Force NON contengono firme/payload espliciti di SQLi o XSS e l'URI HTTP spesso NON viene salvato nel DB.
    - SE compute_verdict_scores assegna a WEB_ATTACK_EXPLOIT uno score >= 0.75 (guidato da sospetto_web_bruteforce con centinaia di richieste HTTP concentrate):
@@ -171,12 +280,52 @@ SHORT-CIRCUIT E REGOLE DI CHIUSURA:
       destinazioni_totali_uniche prima di confermare l'attacco.
 
 4. BEACONING_C2 (BOTNET ED IMPIANTI C2 CON JITTERING):
-   - Applicabile SOLO se i flussi periodici presentano indicatori C2 confermati e NON rientrano nei punti 1, 2 e 3.
-   - Assegna 'BEACONING_C2' se 'detect_beaconing' individua una cadenza periodica regolare o jitter costante verso IP/porte C2 esterne non infrastrutturali.
-   - Gli impianti C2 moderni usano ritardi casuali (jitter) che alzano il Coefficiente di Variazione (CV > 0.60, fino a 1.5). Se 'detect_beaconing' individua un candidato verso un IP ESTERNO non infrastrutturale con connessioni ripetute (>= 15-20) su porte come 8080, 8443, 443 o 80 E il candidato NON ha 'possibile_adtech_non_whitelistato = true', il verdetto è BEACONING_C2 anche se CV > 0.60.
-   - SE invece il candidato ha 'possibile_adtech_non_whitelistato = true' (hostname compatibile con pattern ads/tracking E CV nella fascia borderline 0.55-0.65), la classificazione NON è tassativa: prima di confermare BEACONING_C2 verifica esplicitamente l'hostname nel campione restituito e cita nella motivazione perché lo ritieni comunque malevolo, oppure concludi con la categoria immediatamente successiva più supportata dalle evidenze (o BENIGN se nessun'altra euristica supera 0.5), citando l'hostname come motivazione della deroga.
-   - NON classificare come BENIGN un IP esterno sconosciuto solo perché le richieste non hanno entropia elevata o perché 'detect_beaconing' restituisce 'beaconing_c2_rilevato = false' a causa del solo CV elevato.
-   - CONTRO-INDICAZIONE SCRIPT: Tentativi di connessione ad alta regolarità (CV <= 0.60) verso porte di gestione/servizio (21, 22, 23, 3389) o dentro un flood Web/DoS indicano uno script di Brute Force o DoS, non un impianto C2. NON classificare mai questi casi come BEACONING_C2.
+   - Applicabile SOLO se i flussi periodici presentano indicatori C2 confermati
+     E NON rientrano nei punti 1, 2 e 3, E NON sono riconducibili a servizi
+     legittimi (adtech, CDN, telemetria, aggiornamenti software, cloud storage).
+   - CHECK OBBLIGATORIO PRE-VERDETTO (esegui SEMPRE in quest'ordine):
+     a) Esamina il campo 'hostname' del candidato in detect_beaconing.
+        Se è 'N/A', esegui 'resolve_host_info' sul dst_ip del candidato
+        per tentare di risolvere SNI/dominio.
+     b) Se l'hostname risolto (o già presente) contiene pattern riconducibili
+        a servizi legittimi (es. 'cdn', 'ads', 'track', 'analytics',
+        'telemetry', 'pixel', 'update', 'safebrowsing', oppure appartiene
+        a domini noti come doubleclick.net, spotxchange.com,
+        beachfrontmedia.com, adnxs.com, pubmatic.com, mozilla.net,
+        safebrowsing-cache.google.com, cloudfront.net, akamai.net,
+        fastly.net, ecc.) -> il traffico è LEGITTIMO. Verdetto: BENIGN
+        (o la categoria successiva supportata da ALTRE evidenze dure),
+        con motivazione che CITA esplicitamente l'hostname.
+     c) Se il campo 'infra_provider' del candidato è uno tra Google, Amazon,
+        AWS_Cloudfront, AWS_EC2, Cloudflare, Akamai, Fastly, Microsoft,
+        Edgecast, Cachefly -> stessa deroga di (b): traffico legittimo.
+     d) Se NESSUNA delle (b)/(c) si applica, verifica che il candidato abbia
+        ALMENO UNA corroborazione dura tra:
+          - hostname assente ('N/A') E porta non standard (8080, 8443) su IP
+            esterno non in whitelist;
+          - payload_entropy = 1 sui flussi del candidato;
+          - tag 'CONFIRMED_BEACONING_C2' presente;
+          - assenza di traffico web contestuale (destinazioni_web_distinte
+            <= 10 e flussi_web_totali <= 50 sull'host).
+        Se manca anche solo una di queste corroborazioni, NON assegnare
+        BEACONING_C2: valuta BENIGN o la categoria con score più alto in
+        compute_verdict_scores, motivando esplicitamente il falso positivo
+        sospetto.
+   - Gli impianti C2 moderni usano jitter (CV > 0.60, fino a 1.5). Se
+     'detect_beaconing' individua un candidato verso un IP ESTERNO non
+     infrastrutturale con connessioni ripetute (>= 15-20) su porte 8080,
+     8443, 443 o 80 E il candidato NON ha 'possibile_adtech_non_whitelistato = true'
+     E supera il check (b)/(c)/(d) -> BEACONING_C2 anche se CV > 0.60.
+   - DEROGA ADTECH (indipendente dal CV): se il candidato ha
+     'possibile_adtech_non_whitelistato = true' OPPURE l'hostname risolve
+     a un pattern adtech/CDN/telemetria noto, la classificazione NON è
+     tassativa INDIPENDENTEMENTE dal valore di CV (anche CV = 0.0). Il CV
+     basso è atteso in questi servizi (polling regolare di annunci, tracking,
+     telemetria) e non è prova di C2.
+   - CONTRO-INDICAZIONE SCRIPT: tentativi ad alta regolarità (CV <= 0.60)
+     verso porte di gestione (21, 22, 23, 3389) o dentro un flood Web/DoS
+     indicano Brute Force o DoS, non C2. NON classificare mai questi casi
+     come BEACONING_C2.
 
 5. BENIGN:
    - Assegnabile SE 'compute_verdict_scores' è stato eseguito, TUTTI i suoi score sono < 0.5 e
@@ -187,25 +336,127 @@ SHORT-CIRCUIT E REGOLE DI CHIUSURA:
      falso positivo documentato (vedi sopra).
 
 === ISTRUZIONI PER LA MOTIVAZIONE NEL THOUGHT ===
-Nel tuo ragionamento interno (Thought):
-1. Confronta il verdetto del tool euristico con i dati grezzi estratti dagli altri tool ('search_http_l7_anomalies', 'get_host_port_distribution', 'detect_beaconing').
-2. Se concordi con il tool, spiega quali evidenze confermano la sua stima.
-3. Se DISCONCORDI con il tool (es. il tool suggerisce SCAN_BRUTEFORCE ma i dati mostrano un Web Brute Force con 500 richieste HTTP), DICHIARA ESPLICITAMENTE perché il tool sta sbagliando e imponi il verdetto corretto.
-4. Prima di invocare l'override Slowloris (punto 2b della sezione DOS_VOLUMETRIC), verifica
-   SEMPRE se la stessa finestra mostra anche 'sospetto_web_bruteforce = true' con richieste
-   concentrate su un singolo target ('target_colpiti_count' basso): in quel caso, la
-   spiegazione più parsimoniosa è Web Brute Force con sessioni persistenti, non Slow HTTP
-   DoS — un vero Slowloris non genera un pattern di richieste ripetute rapide verso lo
-   stesso endpoint applicativo, genera poche connessioni tenute aperte artificialmente a
-   lungo. Se entrambe le condizioni numeriche sono marginali (Slowloris appena sopra
-   {_s.SLOWLORIS_FLUSSI_MIN} E web bruteforce appena sopra soglia), dai priorità a
-   WEB_ATTACK_EXPLOIT, perché è l'ipotesi con evidenza applicativa più diretta
-   (sospetto_web_bruteforce è calcolato su conteggio+concentrazione, non su una singola
-   metrica di durata facilmente casuale).
+
+STRUTTURA OBBLIGATORIA DEL THOUGHT (in ogni turno in cui valuti un verdetto):
+
+Il tuo Thought deve contenere SEMPRE queste sezioni, in quest'ordine. Se
+manca anche solo una sezione, il verdetto è da considerarsi non motivato e
+verrà scartato dal sistema.
+
+1. CANDIDATO PRINCIPALE:
+   - hostname (o "N/A"), dst_ip, dst_port, numero di connessioni.
+   - Fonte: campo 'candidati_top' di detect_beaconing o simile.
+
+2. NATURA DELLA DESTINAZIONE:
+   - L'hostname è un servizio legittimo? Sì/No + nome del servizio.
+   - Il provider è noto? Sì/No + nome del provider.
+
+3. CONTESTO DI RETE:
+   - flussi_web_totali = X, destinazioni_web_distinte = Y.
+   - Il contesto è di browsing distribuito? Sì/No.
+
+4. CORROBORAZIONE DURA:
+   - Il candidato ha almeno una delle 4 corroborazioni? Sì/No + quale.
+
+4-bis. DRILL-DOWN SUL CANDIDATO (OBBLIGATORIO):
+   - Se il candidato è un beaconing sospetto, esegui SEMPRE
+     'analizza_connessione_by_community_id' sul community_id del candidato
+     (o su uno dei suoi flussi) per verificarne il payload.
+   - Se il payload è minimo (< 1000 byte per flusso) e costante tra i
+     flussi, è un HEARTBEAT legittimo: NON confermare C2, emetti BENIGN.
+   - Se il payload è variabile, elevato o ha entropia = 1, allora il
+     candidato è effettivamente sospetto.
+   - NON limitarti a verificare l'entropia aggregata dell'host (che
+     potrebbe non includere il candidato): verifica il flusso SPECIFICO
+     del candidato.
+
+5. CONCLUSIONE:
+   - Se il candidato è legittimo o il contesto è di browsing → FALSO
+     POSITIVO, verdetto BENIGN.
+   - Altrimenti → conferma il verdetto suggerito.
+
+REGOLE DI RAGIONAMENTO:
+1. Confronta il verdetto del tool euristico con i dati grezzi estratti dagli
+   altri tool ('search_http_l7_anomalies', 'get_host_port_distribution',
+   'detect_beaconing').
+2. Se concordi con il tool, spiega quali evidenze confermano la sua stima,
+   seguendo la struttura obbligatoria sopra.
+3. Se DISCONCORDI con il tool (es. il tool suggerisce SCAN_BRUTEFORCE ma i
+   dati mostrano un Web Brute Force con 500 richieste HTTP), DICHIARA
+   ESPLICITAMENTE perché il tool sta sbagliando e imponi il verdetto corretto,
+   seguendo la struttura obbligatoria sopra.
+4. Prima di invocare l'override Slowloris (punto 2b della sezione
+   DOS_VOLUMETRIC), verifica SEMPRE se la stessa finestra mostra anche
+   'sospetto_web_bruteforce = true' con richieste concentrate su un singolo
+   target ('target_colpiti_count' basso): in quel caso, la spiegazione più
+   parsimoniosa è Web Brute Force con sessioni persistenti, non Slow HTTP
+   DoS — un vero Slowloris non genera un pattern di richieste ripetute
+   rapide verso lo stesso endpoint applicativo, genera poche connessioni
+   tenute aperte artificialmente a lungo. Se entrambe le condizioni numeriche
+   sono marginali (Slowloris appena sopra {_s.SLOWLORIS_FLUSSI_MIN} E web
+   bruteforce appena sopra soglia), dai priorità a WEB_ATTACK_EXPLOIT,
+   perché è l'ipotesi con evidenza applicativa più diretta
+   (sospetto_web_bruteforce è calcolato su conteggio+concentrazione, non su
+   una singola metrica di durata facilmente casuale).
 
 === VINCOLO TASSATIVO DI COERENZA STAGE 1 -> STAGE 2 ===
 - Il verdetto stabilito nel 'RAGIONAMENTO FINALE (LLM THOUGHT)' dello Stage 1 DEVE essere ricopiato IDENTICO nel campo 'verdetto' del JSON dello Stage 2, QUALUNQUE esso sia.
 - È TASSATIVAMENTE VIETATO convertire, modificare o cambiare il verdetto nel JSON di Stage 2 rispetto a quanto stabilito nel Thought dello Stage 1 — non solo verso 'BENIGN', ma anche tra le quattro categorie di attacco (es. da WEB_ATTACK_EXPLOIT a DOS_VOLUMETRIC). Lo Stage 1 ha già valutato criticamente il suggerimento euristico del tool: se lo Stage 2 lo ribalta citando lo stesso suggerimento che lo Stage 1 aveva già esaminato e motivatamente respinto, questo è un errore di coerenza, non una correzione legittima.
+"""
+
+DIRETTIVA_FIRME_DEPOTENZIATE = f"""
+--- RIVALUTAZIONE DELLE FIRME STRUTTURATE DEPOTENZIATE ---
+
+Quando il tool 'compute_verdict_scores' restituisce uno score < 0.5 per una categoria
+di attacco MA i tool di rilevazione hanno emesso uno o più dei seguenti flag strutturati:
+
+- 'sospetto_web_bruteforce = true' con 'target_colpiti_count' <= {_s.WEBBF_TARGET_MAX}
+  e 'max_tentativi_per_ip' >= {_s.WEBBF_MIN_RICHIESTE}
+- 'sospetto_portscan = true'
+- 'sospetto_bruteforce = true'
+- 'flussi_slowloris_confermati' > 0
+
+DEVI valutare ESPLICITAMENTE nel Thought se il depotenziamento è giustificato.
+
+Il depotenziamento è GIUSTIFICATO solo se esistono contro-evidenze forti, cioè
+almeno UNA delle seguenti:
+
+1. Il traffico è riconducibile a un servizio/protocollo legittimo (VPN, CDN,
+   backup, sync cloud) e la natura della destinazione lo conferma (hostname o
+   provider riconoscibile dagli output dei tool, non dedotto).
+2. Il numero di target distinti colpiti è ELEVATO (> {_s.WEBBF_TARGET_MAX}),
+   indicando fan-out di browsing o polling distribuito, non concentrazione.
+3. Il volume totale è banale (poche decine di richieste TOTALI, sotto
+   {_s.WEBBF_MIN_RICHIESTE}) e non raggiunge nemmeno la soglia minima di
+   rilevazione del tool.
+
+Se NESSUNA delle contro-evidenze sopra è presente, il depotenziamento NON è
+giustificato e la firma strutturata va mantenuta come segnale primario:
+
+- Un 'sospetto_web_bruteforce = true' con concentrazione su pochi target e
+  volume sopra soglia è una firma di attacco, INDIPENDENTEMENTE dal valore di
+  'http_req_rate': quest'ultimo è un proxy del volume concentrato per secondo,
+  e una finestra temporale lunga lo diluisce fisiologicamente, senza che questo
+  cancelli la firma.
+- Un 'sospetto_portscan = true' con conferma di concentrazione su una coppia
+  (src_ip, dst_ip) specifica (campo 'valutazione_mcp = SOSPETTO_PORTSCAN') è
+  una firma di scansione, indipendentemente dal rate.
+- 'flussi_slowloris_confermati > 0' è una firma temporale; da sola non basta
+  a DOS_VOLUMETRIC (soglia = {_s.SLOWLORIS_FLUSSI_MIN}), ma va valutata come
+  segnale aggiuntivo.
+
+Quando mantieni una firma strutturata nonostante il depotenziamento dello
+score, cita nella motivazione finale:
+(a) il nome del flag che stai promuovendo ('sospetto_web_bruteforce', ecc.);
+(b) il valore quantitativo che lo supporta ('target_colpiti_count', 'max_tentativi_per_ip');
+(c) perché il depotenziamento del tool non è applicabile in questo caso.
+
+NON usare questa direttiva per forzare un verdetto di attacco su traffico
+legittimo: la firma strutturata deve essere verificabile nei dati grezzi.
+Se dopo la rivalutazione ritieni che il depotenziamento fosse corretto,
+conferma BENIGN motivandolo con le contro-evidenze specifiche (es. "traffico
+verso hostname legittimo X, target_colpiti_count = 1 ma servizio di telemetria
+applicativa riconosciuto").
 """
 
 FONTE_PRIMARIA_TEXT = f"""
@@ -241,9 +492,17 @@ REGOLA DI ATTRIBUZIONE EVIDENZE (quale segnale guida quale verdetto)
   {_s.DOS_EFFIMERE_FRAZIONE_INFRA_MAX}, la dispersione di porte deriva da traffico 
   di dominio/infrastruttura LAN (DNS, Kerberos, LDAP, SMB) e NON è un segnale di DoS.
 - BEACONING_C2: guidato da periodicità stabile (CV < {_s.CV_BEACON_JITTER_MAX})
-  verso un host ESTERNO, purché il pattern non sia riconducibile a uno
-  script di Brute Force o DoS già spiegato da un'altra regola. La prova
-  primaria è la regolarità temporale (CV), non il volume.
+  verso un host ESTERNO NON riconducibile a servizi legittimi (adtech, CDN,
+  telemetria, aggiornamenti, cloud storage, VPN nota). La prova primaria è la
+  regolarità temporale (CV) IN COMBINAZIONE con almeno UNA corroborazione dura:
+    (a) hostname assente ('N/A') su IP esterno non in whitelist provider;
+    (b) payload_entropy = 1 sui flussi del candidato;
+    (c) porta di destinazione non standard (8080, 8443) verso IP esterno
+        non appartenente a provider cloud/CDN noti;
+    (d) assenza di traffico web/browsing contestuale (destinazioni_web_distinte
+        <= 10 e flussi_web_totali <= 50).
+  Se l'hostname o il provider sono legittimi (vedi whitelist), o manca ogni
+  corroborazione, NON assegnare BEACONING_C2: valuta BENIGN.
 
 Se due regole sembrano applicabili contemporaneamente E le evidenze grezze sono
 comparabili in forza, applica la seguente priorità di default:
@@ -334,6 +593,8 @@ un analista umano senza ulteriore formattazione.
 
 {DIRETTIVA_VERDETTO_TEXT}
 
+{DIRETTIVA_FIRME_DEPOTENZIATE}
+
 {FONTE_PRIMARIA_TEXT}
 
 {DIRETTIVA_GESTIONE_DATI_TEXT}
@@ -395,6 +656,34 @@ tuo compito NON è raccogliere nuovi dati, ma sintetizzare in modo rigoroso e
 onesto quanto già osservato, senza inventare né ammorbidire le conclusioni.
 
 {DIRETTIVA_VALUTAZIONE_E_VERDETTO}
+
+CHECKLIST DI VERIFICA FINALE (da compilare mentalmente prima di emettere il JSON):
+
+Prima di scrivere il campo "verdetto", rispondi a queste domande:
+
+1. Ho citato ESPLICITAMENTE il candidato principale (hostname, IP, porta,
+   numero di connessioni) che ha fatto scattare lo score?
+2. Ho verificato se l'hostname del candidato è riconducibile a un servizio
+   legittimo (adtech, CDN, telemetria, cloud, VPN)?
+3. Ho verificato il contesto di rete (flussi web totali, destinazioni web
+   distinte)? Il contesto è di browsing distribuito?
+4. Ho verificato se il candidato ha almeno una corroborazione dura?
+5. Se lo score è alto ma il candidato è legittimo, ho motivato perché è un
+   falso positivo?
+
+Se la risposta a UNA di queste domande è "no", NON emettere il verdetto:
+torna al Thought e completa l'analisi.
+
+FORMATO DELLA MOTIVAZIONE (obbligatorio):
+La motivazione deve contenere, in prosa semplice:
+- Il nome del candidato principale (hostname o IP:porta) e il numero di
+  connessioni osservate.
+- Il contesto di rete (flussi web totali, destinazioni web distinte).
+- Se il candidato è legittimo, il nome del servizio e perché è legittimo.
+- Se il candidato NON è legittimo, le corroborazioni dure che lo confermano.
+
+DIVIETO: è VIETATO scrivere una motivazione che si limiti a ripetere lo
+score o a dire "confermo il verdetto del tool" senza analisi.
 
 REGOLE TASSATIVE DI EMISSIONE REPORT:
 1. NON menzionare porte, IP o protocolli che non compaiono nelle EVIDENZE
@@ -584,6 +873,23 @@ REGOLE DI VALUTAZIONE:
   Anomaly Score >= {_s.ANOMALY_SCORE_C2_MIN} OPPURE il tag
   'CONFIRMED_BEACONING_C2', OPPURE è presente anche un solo flusso etichettato
   come possibile Bot/C2 -> VERDETTO = BEACONING_C2.
+- RULE #1C (OBBLIGO DI RISOLUZIONE HOSTNAME E CONTESTO): prima di confermare
+  BEACONING_C2, esegui SEMPRE questi controlli:
+    1) Se il candidato di detect_beaconing ha hostname = 'N/A', esegui
+       'resolve_host_info' sul dst_ip per tentare di risolvere SNI/dominio.
+    2) Verifica che l'hostname NON contenga pattern legittimi (cdn, ads,
+       track, analytics, telemetry, pixel, update, safebrowsing) e NON
+       appartenga a domini noti adtech/CDN (doubleclick.net, spotxchange.com,
+       beachfrontmedia.com, adnxs.com, pubmatic.com, cloudfront.net,
+       akamai.net, mozilla.net, safebrowsing-cache.google.com, ecc.).
+    3) Verifica che infra_provider NON sia Google, Amazon, AWS_Cloudfront,
+       AWS_EC2, Cloudflare, Akamai, Fastly, Microsoft, Edgecast, Cachefly.
+    4) Verifica che il contesto NON sia di browsing distribuito: se
+       destinazioni_web_distinte > 10 E flussi_web_totali > 50, il traffico
+       periodico è plausibilmente adtech/tracking, non C2.
+  Se una qualsiasi delle verifiche conferma la legittimità -> BENIGN.
+  Se TUTTE le verifiche confermano l'anomalia (hostname oscuro, provider non
+  noto, contesto non-browsing) -> BEACONING_C2.
 - RULE #1B (Porte C2/Proxy anche con score basso): comunicazioni ripetute o
   persistenti verso porte non standard tipicamente usate da proxy/C2 (es.
   8080, 8443) dirette verso IP esterni vanno considerate un segnale di
@@ -642,10 +948,16 @@ BEACONING_C2 > BENIGN):
 4. PRIORITÀ 4 - BEACONING C2/BOTNET: se è presente QUALSIASI flusso
    etichettato come Bot/C2/Beacon (anche solo 1-5 flussi su migliaia di
    flussi benigni) OPPURE l'Anomaly Score di beaconing è >=
-   {_s.ANOMALY_SCORE_C2_MIN}, e il pattern non è già spiegato da una delle
-   priorità 1-3 -> VERDETTO = BEACONING_C2. Non applicare soglie minime di
-   volume per questa minaccia: anche un canale C2 a bassissimo traffico è
-   comunque un impianto attivo.
+   {_s.ANOMALY_SCORE_C2_MIN}, PRIMA di confermare esegui:
+     - risoluzione hostname del dst_ip (resolve_host_info) se non già noto;
+     - verifica che l'hostname NON sia adtech/CDN/telemetria (vedi whitelist);
+     - verifica che il contesto NON sia di browsing web distribuito
+       (destinazioni_web_distinte > 10 E flussi_web_totali > 50).
+   Solo se l'hostname resta oscuro e il contesto è anonimo -> BEACONING_C2.
+   Altrimenti -> BENIGN.
+   Non applicare soglie minime di volume per questa minaccia: anche un canale
+   C2 a bassissimo traffico è comunque un impianto attivo, ma SOLO se
+   l'hostname e il contesto non sono riconducibili a servizi legittimi.
 5. DEFAULT ASSOLUTO (protezione dai falsi positivi): se non sono verificate
    le priorità 1-4 -> VERDETTO = BENIGN. Di fronte a traffico ordinario o
    privo di violazioni esplicite delle regole sopra, l'unica risposta valida
@@ -1184,6 +1496,15 @@ che trovi):
    richiama 'search_http_l7_anomalies' prima di concludere l'analisi, anche
    se l'ipotesi di lavoro iniziale non era un attacco applicativo: un
    pattern L7 inatteso può ribaltare la categoria assegnata inizialmente.
+3-bis. Verifica di legittimità PRIMA di confermare BEACONING_C2: se
+   detect_beaconing o compute_verdict_scores suggeriscono BEACONING_C2,
+   risolvi SEMPRE l'hostname del dst_ip del candidato (resolve_host_info)
+   se non già noto, e verifica che NON sia riconducibile a servizi legittimi
+   (adtech, CDN, telemetria, aggiornamenti software). In caso affermativo,
+   il verdetto corretto è BENIGN, con motivazione che cita esplicitamente
+   l'hostname e il provider. Questo controllo è OBBLIGATORIO prima di
+   qualsiasi verdetto BEACONING_C2: la sola periodicità (CV basso) NON è
+   prova sufficiente di C2.
 4. Divieto di chiusura prematura: se lo score calcolato è inferiore a 0.90, devi eseguire TUTTI i tool obbligatori prima di emettere il verdetto: {config.tool_obbligatori_str}.
 5. Quando chiami 'compute_verdict_scores', ricorda che se lo score è >= 0.90 devi fermarti immediatamente; altrimenti valida il punteggio con le evidenze già raccolte nei passi precedenti.
 
