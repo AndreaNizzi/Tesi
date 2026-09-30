@@ -55,10 +55,21 @@ _DOMINI_INFRA_LEGITTIMA = [
     "canonical.com", "ubuntu.com", "microsoft.com", "windowsupdate.com",
     "apple.com", "digicert.com", "letsencrypt.org", "sectigo.com", "comodo.com",
     "akamaized.net", "cloudfront.net", "mozilla.org", "google.com", "googleapis.com",
+    "anthropic.com", "claude.ai",
+    "openai.com", "chatgpt.com",
+    "slack.com", "slack-edge.com",
+    "atlassian.com", "atlassian.net",
+    "github.com", "githubusercontent.com",
+    "gitlab.com",
+    "dropbox.com", "box.com",
+    "zoom.us",
+    "notion.so",
+    "figma.com",
 ]
 DOMINI_ADTECH = [
     "adnxs.com", "doubleclick.net", "googlesyndication.com", "rubiconproject.com",
     "casalemedia.com", "scorecardresearch.com", "criteo.com", "pubmatic.com", "openx.net",
+    "beachfrontmedia.com", "kameleoon.com", "spotxchange.com", "2mdn.net",  "moatads.com", "advertising.com","tremorhub.com",
 ]
 PATTERN_ADTECH_HOSTNAME = re.compile(
     r"(^|\.)(ads?|advert(ising)?|doubleclick|adserver|adsystem|pixel|adaptv|adnxs|track(ing)?)\.",
@@ -548,22 +559,63 @@ def _calcola_scores_da_evidenze(
             note_logiche.append("Traffico VPN (FortiClient) identificato: concentrazione L7 fisiologica, falso positivo annullato.")
         else:
             http_req_rate_val = float(l7_ss.get("http_req_rate") or 0.0)
+
+            target_colpiti = int(l7_ss.get("target_colpiti_count") or 0)
+            webbf_target_max = getattr(s, "WEBBF_TARGET_MAX", 4)
+            webbf_min_richieste = getattr(s, "WEBBF_MIN_RICHIESTE", 25)
+
+            concentrazione_forte = (
+                target_colpiti > 0
+                and target_colpiti <= webbf_target_max
+                and max_tentativi_ip >= webbf_min_richieste
+            )
+
             corroborato = (
                 login_endpoint_targeted
                 or anomalie_entropia > 0
                 or http_req_rate_val >= getattr(s, "WEBBF_HTTP_REQ_RATE_MIN_CORROBORAZIONE", 0.5)
+                or concentrazione_forte
             )
-            if login_endpoint_targeted:
+
+            feature_corroboranti = sum([
+                bool(login_endpoint_targeted),
+                anomalie_entropia > 0,
+                http_req_rate_val >= getattr(s, "WEBBF_HTTP_REQ_RATE_MIN_CORROBORAZIONE", 0.5),
+            ])
+
+            if login_endpoint_targeted and feature_corroboranti >= 2:
                 web_attack_score = 0.95
-            elif corroborato:
-                web_attack_score = 0.75
-            else:
-                web_attack_score = 0.40
                 note_logiche.append(
-                    f"Web brute force rilevato ({max_tentativi_ip} richieste su target unico) ma SENZA corroborazione "
-                    f"indipendente (http_req_rate={http_req_rate_val}, login_endpoint_targeted=False, "
-                    f"anomalie_entropia=0): score depotenziato sotto la soglia di blocco BENIGN."
+                    f"Web attack corroborato: login targeting + "
+                    f"{feature_corroboranti - 1} feature indipendenti."
                 )
+            elif feature_corroboranti >= 2:
+                web_attack_score = 0.75
+                note_logiche.append(
+                    f"Web brute force corroborato da {feature_corroboranti} feature indipendenti "
+                    f"(login={login_endpoint_targeted}, entropia={anomalie_entropia}, rate={http_req_rate_val})."
+                )
+            elif feature_corroboranti == 1:
+                web_attack_score = 0.55
+                note_logiche.append(
+                    f"Web brute force con UNA sola feature corroborante "
+                    f"(login={login_endpoint_targeted}, entropia={anomalie_entropia}, rate={http_req_rate_val}): "
+                    f"score depotenziato a 0.55."
+                )
+            else:
+                if concentrazione_forte:
+                    web_attack_score = 0.75
+                    note_logiche.append(
+                        f"Web brute force CONCENTRATO: {max_tentativi_ip} richieste su "
+                        f"{target_colpiti} target (soglia >= {webbf_min_richieste} su <= {webbf_target_max}). "
+                        f"Score forzato a 0.75 indipendentemente da login/entropia/rate."
+                    )
+                else:
+                    web_attack_score = 0.40
+                    note_logiche.append(
+                        f"Web brute force rilevato ({max_tentativi_ip} richieste su {target_colpiti} target) "
+                        f"ma SENZA corroborazione indipendente: score depotenziato sotto 0.5."
+                    )
 
     scan_score, note_scan, bruteforce_l4_confirmed, max_tentativi_bf, porte_uscita_target = _eval_scan_and_bruteforce(
         conn_attempts, port_ss, s, web_attack_score, ip_target_arg=ip_target
@@ -887,18 +939,16 @@ def _detect_beaconing_raw(
             tag_list.append("INTERNAL_LAN_KEEPALIVE")
             return s.SCORE_DEFAULT, tag_list
 
-        # GUARDRAIL INFRASTRUTTURA REPUTATA (Prevenzione Falsi Positivi C2)
+        # GUARDRAIL INFRASTRUTTURA REPUTATA (Prevenzione Falsi Positivi C2).
         is_reputable_infra = bool(infra_provider) and any(
             p in infra_provider.lower() for p in config.PROVIDER_REPUTATI
         )
         if is_reputable_infra:
-            porta_tipicamente_c2 = dst_port in config.Soglie.PORTE_C2_SOSPETTE
-            if not porta_tipicamente_c2:
-                tag_list.append(
-                    "REPUTABLE_INFRA_WEAK_JITTER" if cv > s.CV_BEACON_JITTER_MAX
-                    else "REPUTABLE_INFRA_REGULAR_HEARTBEAT"
-                )
-                return s.SCORE_DEFAULT, tag_list
+            tag_list.append(
+                "REPUTABLE_INFRA_WEAK_JITTER" if cv > s.CV_BEACON_JITTER_MAX
+                else "REPUTABLE_INFRA_REGULAR_HEARTBEAT"
+            )
+            return s.SCORE_DEFAULT, tag_list
 
         if totale_connessioni >= s.BEACON_MIN_CONNESSIONI:
             if cv <= s.CV_BEACON_JITTER_MAX:
@@ -1044,13 +1094,24 @@ def _detect_beaconing_raw(
 
         is_internal_keepalive = "INTERNAL_LAN_KEEPALIVE" in tag_list
 
-        if not is_whitelisted and not is_internal_keepalive and not possibile_adtech_non_whitelistato:
-            is_high_volume_c2_port = (dst_port in config.Soglie.PORTE_C2_SOSPETTE and totale_connessioni >= config.Soglie.BEACON_MIN_CONNESSIONI_PORTA_C2)
-            senza_sni = not hostname 
+        infra_is_reputable = bool(infra_provider) and any(
+            p in infra_provider.lower() for p in config.PROVIDER_REPUTATI
+        )
+
+        if (not is_whitelisted
+            and not is_internal_keepalive
+            and not possibile_adtech_non_whitelistato
+            and not infra_is_reputable):       
+            is_high_volume_c2_port = (
+                dst_port in config.Soglie.PORTE_C2_SOSPETTE
+                and totale_connessioni >= config.Soglie.BEACON_MIN_CONNESSIONI_PORTA_C2
+            )
+            senza_sni = not hostname
 
             if (
                 "CONFIRMED_BEACONING_C2" in tag_list
-                or ("SUSPECTED_BEACONING_JITTER" in tag_list and (dst_port in config.Soglie.PORTE_C2_SOSPETTE or senza_sni))
+                or ("SUSPECTED_BEACONING_JITTER" in tag_list
+                    and (dst_port in config.Soglie.PORTE_C2_SOSPETTE or senza_sni))
                 or is_high_volume_c2_port
             ):
                 has_c2_candidate = True
@@ -1210,7 +1271,7 @@ def _search_http_l7_anomalies_raw(
 
         payload_ent = f.get("payload_entropy")
         # Controlla entropia elevata
-        is_entropy_suspicious = (payload_ent is not None and float(payload_ent) > 0.8)
+        is_entropy_suspicious = (payload_ent is not None and int(float(payload_ent)) == 1)
 
         fwd_p = f.get("fwd_packets") or 0
         bwd_p = f.get("bwd_packets") or 0
