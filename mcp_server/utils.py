@@ -114,7 +114,7 @@ def seleziona_modello_engine():
             base_url = os.getenv(
                 "INTERHOST_BASE_URL", "https://aitest.interhost.it/v1"
             )
-            model_name = os.getenv("INTERHOST_MODEL_NAME", "Qwen3.6-27B")
+            model_name = os.getenv("INTERHOST_MODEL_NAME", "Qwen3.8-27B")
 
 
             if not api_key:
