@@ -1,14 +1,15 @@
 
-# openai — client AsyncOpenAI usato in client.py e test_suite.py
-# mcp — ClientSession, StdioServerParameters, FastMCP (server e client MCP)
-# sqlalchemy — create_engine, text() per le query in server.py e config.py
-# pymysql — driver MySQL usato dalla connection string mysql+pymysql://... in config.py (non importato esplicitamente in codice, ma richiesto a runtime da SQLAlchemy)
-# python-dotenv — load_dotenv() in tutti i moduli
-# httpx — client HTTP custom con timeout in test_suite.py
-
+# Client LLM (AsyncOpenAI) e server MCP (FastMCP)
 openai>=1.0.0
 mcp>=1.0.0
+
+# Database e driver
 sqlalchemy>=2.0.0
 pymysql>=1.1.0
+
+# Gestione variabili d'ambiente e richieste HTTP
 python-dotenv>=1.0.0
 httpx>=0.27.0
+
+# Calcolo del Community ID (usato in Join_CSV.py e Popola_DB_json_ndpiReader.py)
+communityid>=1.0.0
