@@ -76,7 +76,7 @@ autonomamente.*
    GROQ_MODEL_NAME=openai/gpt-oss-120b
 
    INTERHOST_API_KEY=<chiave API Interhost, opzionale se usi solo Groq>
-   INTERHOST_BASE_URL=https://aitest.interhost.it/v1
+   INTERHOST_BASE_URL=<indirizzo Interhost, opzionale se usi solo Groq>
    INTERHOST_MODEL_NAME=Qwen3.8-27B
    ```
 
