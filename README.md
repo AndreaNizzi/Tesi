@@ -72,7 +72,7 @@ autonomamente.*
    DB_PASSWORD=<password del database MySQL>
 
    GROQ_API_KEY=<chiave API Groq, opzionale se usi solo Interhost>
-   GROQ_BASE_URL=https://api.groq.com/openai/v1
+   GROQ_BASE_URL=<indirizzo Groq, opzionale se usi solo Interhost>
    GROQ_MODEL_NAME=openai/gpt-oss-120b
 
    INTERHOST_API_KEY=<chiave API Interhost, opzionale se usi solo Groq>
