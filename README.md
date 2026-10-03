@@ -35,11 +35,10 @@ dall'agente LLM tramite MCP.
 
 - Python 3.11+
 - MySQL con le tabelle:
-  - `ndpi_flows` — dati di flusso arricchiti nDPI
-  - `cic_flows` — ground truth di riferimento (colonne `label`, `src_ip`,
-    `dst_ip`, `timestamp_start`), usata solo da `test_suite.py` per l'auditing
-  - `flow_mapping` — vista allineata tra `ndpi_flows` e `cic_flows`, usata
-    per l'auditing e la generazione degli scenari
+  - `ndpi_flows` — dati di flusso arricchiti nDPI (unica sorgente accessibile all'LLM)
+  - `cic_flows` — ground truth di riferimento (colonna `label`), usata solo da `test_suite.py` per l'auditing
+  - `flow_mapping` — vista allineata tra `ndpi_flows` e `cic_flows`, usata per l'auditing e la generazione degli scenari
+  - `report_validazione` — qualificazione degli scenari esistenti (purezza, soglia, labels presenti)
 - Accesso API a un modello LLM compatibile OpenAI (Groq o endpoint Interhost)
 - Tool esterni per la generazione dei dati in locale: **CICFlowMeter** e
   **ndpiReader**
@@ -134,10 +133,16 @@ USE thesis_network;
 
 #### 2. Generazione Tabelle
 
-Entrambe le tabelle usano come chiave primaria surrogata (`id`) di tipo
-intero sequenziale per prevenire la frammentazione dei blocchi di memoria su
-disco (page splitting) causata dalla casualità degli hash stringa. Il
-`community_id` viene preservato come chiave di correlazione multi-istanza.
+Lo schema è composto da **quattro tabelle**. La separazione fisica tra
+`ndpi_flows` (accessibile all'LLM) e `cic_flows` (ground truth) è il
+fondamento del blind test: la colonna `label` è confinata in `cic_flows` ed è
+inaccessibile ai tool MCP.
+
+Le tabelle `ndpi_flows` e `cic_flows` usano come chiave primaria surrogata
+(`id`) di tipo intero sequenziale per prevenire la frammentazione dei blocchi
+di memoria su disco (page splitting) causata dalla casualità degli hash
+stringa. Il `community_id` viene preservato come chiave logica di
+correlazione multi-istanza.
 
 **Tabella `ndpi_flows` (dati estratti con ndpiReader):**
 
@@ -161,18 +166,20 @@ CREATE TABLE ndpi_flows (
     byte_rate DOUBLE NOT NULL,
     iat_flow_avg DOUBLE NOT NULL,
     iat_flow_stddev DOUBLE NOT NULL,
-    tcp_flags INT NULL,                    -- bitmask intera
-    ndpi_hostname VARCHAR(255) NULL,
-    payload_entropy DOUBLE NULL,           -- flag binario 0/1
-    app_hierarchy VARCHAR(100) NULL,
-    infra_provider VARCHAR(100) NULL,
-    tls_version VARCHAR(10) NULL,
-    tls_cipher_suite VARCHAR(100) NULL,
-    tls_ja4 VARCHAR(36) NULL,
-    tls_issuer_dn VARCHAR(255) NULL,
-    INDEX idx_ndpi_comm_time (community_id(50), timestamp_start),
-    INDEX idx_src_ip (src_ip)
-);
+    tcp_flags INT DEFAULT NULL,
+    ndpi_hostname VARCHAR(255) DEFAULT NULL,
+    payload_entropy DOUBLE DEFAULT NULL,
+    app_hierarchy VARCHAR(100) DEFAULT NULL,
+    infra_provider VARCHAR(100) DEFAULT NULL,
+    tls_version VARCHAR(10) DEFAULT NULL,
+    tls_cipher_suite VARCHAR(100) DEFAULT NULL,
+    tls_ja4 VARCHAR(36) DEFAULT NULL,
+    tls_issuer_dn VARCHAR(255) DEFAULT NULL,
+    KEY idx_timestamp (timestamp_start),
+    KEY idx_comm_time (community_id, timestamp_start),
+    KEY idx_ndpi_flows_src_time_dst (src_ip, timestamp_start, dst_ip, dst_port),
+    KEY idx_flows_dst_ip_start (dst_ip, timestamp_start)
+) ENGINE=InnoDB;
 ```
 
 **Tabella `cic_flows` (dati CICFlowMeter + Label ufficiale):**
@@ -197,10 +204,12 @@ CREATE TABLE cic_flows (
     byte_rate DOUBLE NOT NULL,
     iat_flow_avg DOUBLE NOT NULL,
     iat_flow_stddev DOUBLE NOT NULL,
-    label VARCHAR(50) NULL DEFAULT 'BENIGN',
-    INDEX idx_cic_comm_time (community_id(50), timestamp_start),
-    INDEX idx_label (label)
-);
+    label VARCHAR(50) DEFAULT 'BENIGN',
+    KEY idx_cic_timestamp (timestamp_start),
+    KEY idx_cic_label (label),
+    KEY idx_comm_time (community_id, timestamp_start),
+    KEY idx_cic_src_ip (src_ip, timestamp_start)
+) ENGINE=InnoDB;
 ```
 
 **Tabella `flow_mapping` (vista allineata ndpi ↔ cic, per auditing):**
@@ -213,13 +222,34 @@ CREATE TABLE flow_mapping (
     label VARCHAR(64) NOT NULL,
     drift_sec INT NOT NULL,
     PRIMARY KEY (community_id, ndpi_ts),
-    INDEX idx_fm_label_ts (label, ndpi_ts)
-);
+    KEY idx_fm_ndpi_ts (ndpi_ts),
+    KEY idx_fm_label (label),
+    KEY idx_fm_label_ts (label, ndpi_ts)
+) ENGINE=InnoDB;
 ```
 
 La query di popolamento di `flow_mapping` è riportata in Appendice B della
 tesi (popolamento per giorno per evitare timeout su tabelle di grandi
 dimensioni).
+
+**Tabella `report_validazione` (qualificazione degli scenari esistenti, cfr. §7.3.2 della tesi):**
+
+```sql
+CREATE TABLE report_validazione (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    categoria VARCHAR(16) DEFAULT NULL,
+    ip_target VARCHAR(64) DEFAULT NULL,
+    verdetto_atteso VARCHAR(64) DEFAULT NULL,
+    n_flussi INT DEFAULT NULL,
+    n_attacco INT DEFAULT NULL,
+    n_altro INT DEFAULT NULL,
+    purezza_pct DECIMAL(5,2) DEFAULT NULL,
+    soglia INT DEFAULT NULL,
+    labels_presenti TEXT,
+    KEY idx_purezza (purezza_pct),
+    KEY idx_n_attacco (n_attacco)
+) ENGINE=InnoDB;
+```
 
 #### 3. Configurazione Credenziali
 
