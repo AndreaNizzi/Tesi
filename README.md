@@ -570,7 +570,7 @@ Per una discussione approfondita si rimanda al Capitolo 7 della tesi.
 ## Riferimenti
 
 - **Repository ufficiale del progetto**: [https://github.com/AndreaNizzi/Tesi](https://github.com/AndreaNizzi/Tesi)
-- **Tesi completa**: [`TesiLaTeX.pdf`](./TesiLaTeX.pdf) nella repository
+- **Tesi completa**: [`Relazionr.pdf`](./Relazione.pdf) nella repository
 - **Dataset CIC-IDS-2017**: [https://www.unb.ca/cic/datasets/ids-2017.html](https://www.unb.ca/cic/datasets/ids-2017.html)
 - **nDPI** (Deep Packet Inspection): [https://github.com/ntop/nDPI](https://github.com/ntop/nDPI)
 - **MCP** (Model Context Protocol): [https://modelcontextprotocol.io](https://modelcontextprotocol.io)
